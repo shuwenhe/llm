@@ -173,7 +173,12 @@ eval_interval = 500   # 评估间隔
 3. **训练过程**: 阅读 [`train.py`](train.py) 学习训练循环
 4. **文本生成**: 探索 [`generate.py`](generate.py) 了解推理过程
 
-> 💡 **深入了解数学原理？** 查看 [MATHEMATICS.md](docs/MATHEMATICS.md) - 详细分析项目中用到的所有数学知识（线性代数、微积分、概率论等）
+### 📖 详细文档
+
+- 💡 **深度学习知识全解析**: [DEEP_LEARNING.md](docs/DEEP_LEARNING.md) - 详细讲解项目中用到的所有深度学习概念（Transformer、注意力机制、优化算法、正则化等）
+- 📐 **数学知识分析**: [MATHEMATICS.md](docs/MATHEMATICS.md) - 详细分析项目中用到的所有数学知识（线性代数、微积分、概率论等）
+- 🔧 **安装指南**: [INSTALL.md](docs/INSTALL.md) - Linux/macOS/Windows完整安装指南
+- 🐍 **虚拟环境问题**: [VENV_ISSUE.md](docs/VENV_ISSUE.md) - 解决Python虚拟环境常见问题
 
 ## 📈 扩展建议
 

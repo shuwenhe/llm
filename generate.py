@@ -60,15 +60,39 @@ def main():
     
     print(f"模型参数量: {model.get_num_params()/1e6:.2f}M")
     
+    # 预设参数
+    presets = {
+        '1': {'name': '保守模式', 'temp': 0.7, 'top_k': 50, 'tokens': 150},
+        '2': {'name': '平衡模式', 'temp': 0.8, 'top_k': 200, 'tokens': 250},
+        '3': {'name': '创意模式', 'temp': 1.0, 'top_k': 300, 'tokens': 300},
+    }
+    
     # 交互式生成
     print("\n" + "="*50)
     print("文本生成器 (输入 'quit' 退出)")
     print("="*50)
+    print("\n📝 生成模式:")
+    for k, v in presets.items():
+        print(f"  {k}. {v['name']} (temperature={v['temp']}, top_k={v['top_k']}, tokens={v['tokens']})")
+    print("\n💡 提示词示例:")
+    print("  - Once upon a time")
+    print("  - The meaning of life is")
+    print("  - In a world where")
+    
+    # 默认使用平衡模式
+    current_preset = presets['2']
     
     while True:
-        prompt = input("\n请输入提示词: ")
+        prompt = input("\n请输入提示词 (或输入1/2/3切换模式): ")
+        
         if prompt.lower() == 'quit':
             break
+        
+        # 切换模式
+        if prompt in presets:
+            current_preset = presets[prompt]
+            print(f"✓ 已切换到: {current_preset['name']}")
+            continue
         
         if not prompt.strip():
             continue
@@ -79,12 +103,12 @@ def main():
             model,
             tokenizer,
             device,
-            max_new_tokens=128,
-            temperature=0.8,
-            top_k=40
+            max_new_tokens=current_preset['tokens'],
+            temperature=current_preset['temp'],
+            top_k=current_preset['top_k']
         )
         
-        print(f"\n生成结果:\n{generated}\n")
+        print(f"\n生成结果 [{current_preset['name']}]:\n{generated}\n")
         print("-"*50)
 
 

@@ -1,4 +1,4 @@
-.PHONY: help install test train generate clean clean-checkpoints clean-all
+.PHONY: help install test train generate quick-generate clean clean-checkpoints clean-all
 
 # Python解释器
 PYTHON := python3
@@ -16,7 +16,8 @@ help:
 	@echo "开发与训练:"
 	@echo "  make test             - 运行模型测试"
 	@echo "  make train            - 开始训练模型"
-	@echo "  make generate         - 运行文本生成"
+	@echo "  make generate         - 运行交互式文本生成"
+	@echo "  make quick-generate   - 批量测试生成参数"
 	@echo "  make quick-test       - 快速测试(验证模型可用)"
 	@echo ""
 	@echo "工具:"
@@ -103,6 +104,11 @@ train:
 generate:
 	@echo "启动文本生成..."
 	$(PYTHON) generate.py
+
+# 快速生成测试（批量测试不同参数）
+quick-generate:
+	@echo "批量测试生成参数..."
+	$(PYTHON) quick_generate.py
 
 # 快速测试（用于验证代码）
 quick-test:
