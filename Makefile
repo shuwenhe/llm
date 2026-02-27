@@ -7,33 +7,87 @@ PYTHON := python3
 help:
 	@echo "LLM项目 - 可用命令:"
 	@echo ""
-	@echo "  make install          - 安装项目依赖"
+	@echo "环境设置:"
+	@echo "  make setup            - 创建虚拟环境"
+	@echo "  make setup-all        - 创建虚拟环境并安装依赖(推荐)"
+	@echo "  make install          - 安装依赖(需要先激活虚拟环境)"
+	@echo "  make install-force    - 强制安装(不推荐，跳过虚拟环境检查)"
+	@echo ""
+	@echo "开发与训练:"
 	@echo "  make test             - 运行模型测试"
 	@echo "  make train            - 开始训练模型"
 	@echo "  make generate         - 运行文本生成"
+	@echo "  make quick-test       - 快速测试(验证模型可用)"
+	@echo ""
+	@echo "工具:"
+	@echo "  make info             - 查看模型配置信息"
+	@echo "  make check-deps       - 检查依赖安装情况"
+	@echo "  make init             - 创建必要的项目目录"
+	@echo ""
+	@echo "清理:"
 	@echo "  make clean            - 清理Python缓存文件"
 	@echo "  make clean-checkpoints - 删除所有checkpoint文件"
 	@echo "  make clean-all        - 清理所有生成文件"
 	@echo ""
-	@echo "  make setup            - 完整设置(创建venv+安装依赖)"
-	@echo "  make quick-test       - 快速测试(小数据集)"
-	@echo ""
 
-# 安装依赖
-install:
+# 检查是否在虚拟环境中
+check-venv:
+	@if [ -z "$$VIRTUAL_ENV" ]; then \
+		echo "❌ 错误：未检测到虚拟环境！"; \
+		echo ""; \
+		echo "请先创建并激活虚拟环境："; \
+		echo "  方式1: make setup && source venv/bin/activate"; \
+		echo "  方式2: python3 -m venv venv && source venv/bin/activate"; \
+		echo ""; \
+		echo "然后再运行: make install"; \
+		exit 1; \
+	fi
+
+# 安装依赖（需要在虚拟环境中）
+install: check-venv
 	@echo "安装项目依赖..."
 	$(PYTHON) -m pip install --upgrade pip
 	$(PYTHON) -m pip install -r requirements.txt
+	@echo "✓ 依赖安装完成"
+
+# 强制安装（不检查虚拟环境，不推荐）
+install-force:
+	@echo "⚠️  强制安装依赖（不推荐，可能影响系统Python）..."
+	$(PYTHON) -m pip install --upgrade pip --break-system-packages
+	$(PYTHON) -m pip install -r requirements.txt --break-system-packages
 	@echo "✓ 依赖安装完成"
 
 # 创建虚拟环境并安装依赖
 setup:
 	@echo "创建虚拟环境..."
 	$(PYTHON) -m venv venv
-	@echo "请激活虚拟环境后运行: make install"
+	@echo "✓ 虚拟环境创建完成: venv/"
 	@echo ""
-	@echo "Linux/Mac: source venv/bin/activate"
-	@echo "Windows:   venv\\Scripts\\activate"
+	@echo "激活虚拟环境："
+	@echo "  Linux/Mac: source venv/bin/activate"
+	@echo "  Windows:   venv\\Scripts\\activate"
+	@echo ""
+	@echo "然后运行: make install"
+
+# 一键安装（创建venv并安装依赖）
+setup-all:
+	@echo "创建虚拟环境并安装依赖..."
+	@if [ ! -d "venv" ]; then \
+		echo "创建虚拟环境..."; \
+		$(PYTHON) -m venv venv; \
+	fi
+	@echo "安装依赖到虚拟环境..."
+	@./venv/bin/pip install --upgrade pip
+	@./venv/bin/pip install -r requirements.txt
+	@echo ""
+	@echo "✓ 设置完成！"
+	@echo ""
+	@echo "激活虚拟环境："
+	@echo "  source venv/bin/activate"
+	@echo ""
+	@echo "然后可以运行："
+	@echo "  make test    # 测试模型"
+	@echo "  make train   # 训练模型"
 
 # 运行模型测试
 test:
