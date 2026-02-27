@@ -42,7 +42,7 @@ class TrainConfig:
     # 学习率调度
     warmup_iters = 100
     lr_decay_iters = 10000
-    min_lr = 3e-5
+    min_lr = 1e-6
     
     # 系统
     device = "cuda"  # cuda, mps, cpu
