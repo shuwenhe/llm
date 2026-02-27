@@ -176,7 +176,8 @@ eval_interval = 500   # 评估间隔
 ### 📖 详细文档
 
 - 💡 **深度学习知识全解析**: [DEEP_LEARNING.md](docs/DEEP_LEARNING.md) - 详细讲解项目中用到的所有深度学习概念（Transformer、注意力机制、优化算法、正则化等）
-- 📐 **数学知识分析**: [MATHEMATICS.md](docs/MATHEMATICS.md) - 详细分析项目中用到的所有数学知识（线性代数、微积分、概率论等）
+- � **模型优化指南**: [OPTIMIZATION.md](docs/OPTIMIZATION.md) - 系统的优化方案，提升生成质量和训练效率
+- �📐 **数学知识分析**: [MATHEMATICS.md](docs/MATHEMATICS.md) - 详细分析项目中用到的所有数学知识（线性代数、微积分、概率论等）
 - 🔧 **安装指南**: [INSTALL.md](docs/INSTALL.md) - Linux/macOS/Windows完整安装指南
 - 🐍 **虚拟环境问题**: [VENV_ISSUE.md](docs/VENV_ISSUE.md) - 解决Python虚拟环境常见问题
 

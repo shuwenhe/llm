@@ -60,10 +60,12 @@ def train():
     
     # 准备数据
     print("准备数据...")
+    clean_data = getattr(train_config, 'clean_data', True)  # 默认清洗数据
     train_dataset, val_dataset, tokenizer = prepare_data(
         dataset_name=train_config.dataset_name,
         dataset_config=train_config.dataset_config,
-        block_size=model_config.block_size
+        block_size=model_config.block_size,
+        clean_data=clean_data
     )
     
     train_loader = create_dataloader(train_dataset, train_config.batch_size, shuffle=True)

@@ -23,6 +23,7 @@ class TrainConfig:
     # 数据
     dataset_name = "wikitext"  # 或使用自己的数据
     dataset_config = "wikitext-2-raw-v1"
+    clean_data = True  # 是否清洗WikiText格式标记
     
     # 训练参数
     batch_size = 16

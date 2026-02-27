@@ -1,9 +1,46 @@
 """数据加载和处理"""
+import re
 import torch
 from torch.utils.data import Dataset, DataLoader
 from datasets import load_dataset
 from transformers import GPT2TokenizerFast
 import numpy as np
+
+
+def clean_wikitext(text):
+    """
+    清洗WikiText数据中的格式标记
+    
+    移除：
+    - 维基百科分词标记 (@-@, @,@, @.@)
+    - 标题分隔符 (= = =)
+    - 多余的空白
+    """
+    if not isinstance(text, str):
+        return ""
+    
+    # 替换维基标记
+    text = text.replace(' @-@ ', '-')
+    text = text.replace(' @,@ ', ',')
+    text = text.replace(' @.@ ', '.')
+    text = text.replace('@-@', '-')
+    text = text.replace('@,@', ',')
+    text = text.replace('@.@', '.')
+    
+    # 移除标题分隔符（= = = Title = = =）
+    text = re.sub(r'\s*=+\s+([^=]+)\s+=+\s*', r'\n\1\n', text)
+    text = re.sub(r'\s*=+\s*', '\n', text)
+    
+    # 清理多余换行
+    text = re.sub(r'\n\n\n+', '\n\n', text)
+    
+    # 清理多余空格
+    text = re.sub(r' +', ' ', text)
+    
+    # 移除首尾空白
+    text = text.strip()
+    
+    return text
 
 
 class TextDataset(Dataset):
@@ -28,9 +65,16 @@ def load_tokenizer():
     return tokenizer
 
 
-def prepare_data(dataset_name="wikitext", dataset_config="wikitext-2-raw-v1", block_size=512):
+def prepare_data(dataset_name="wikitext", dataset_config="wikitext-2-raw-v1", block_size=512, clean_data=True):
     """
     准备训练数据
+    
+    参数:
+        dataset_name: 数据集名称
+        dataset_config: 数据集配置
+        block_size: 序列块大小
+        clean_data: 是否清洗数据（移除格式标记）
+    
     返回: train_dataset, val_dataset, tokenizer
     """
     print(f"加载数据集: {dataset_name}/{dataset_config}")
@@ -40,6 +84,20 @@ def prepare_data(dataset_name="wikitext", dataset_config="wikitext-2-raw-v1", bl
     
     # 加载分词器
     tokenizer = load_tokenizer()
+    
+    # 清洗数据
+    if clean_data and dataset_name == "wikitext":
+        print("清洗WikiText格式标记...")
+        
+        def clean_function(examples):
+            cleaned_texts = [clean_wikitext(text) for text in examples['text']]
+            return {'text': cleaned_texts}
+        
+        dataset = dataset.map(
+            clean_function,
+            batched=True,
+            desc="Cleaning data"
+        )
     
     # 分词函数
     def tokenize_function(examples):
