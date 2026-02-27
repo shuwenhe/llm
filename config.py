@@ -33,11 +33,11 @@ class TrainConfig:
     log_interval = 10
     
     # 优化器
-    learning_rate = 3e-4
+    learning_rate = 1e-5      # 1e-4 → 1e-5（再降10倍）
     weight_decay = 0.1
     beta1 = 0.9
     beta2 = 0.95
-    grad_clip = 1.0
+    grad_clip = 0.1           # 0.5 → 0.1（更严格）
     
     # 学习率调度
     warmup_iters = 100
