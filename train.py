@@ -3,6 +3,7 @@ import os
 import time
 import math
 import torch
+import warnings
 from torch.nn import functional as F
 from tqdm import tqdm
 
@@ -96,6 +97,7 @@ def train():
     iter_num = 0
     best_val_loss = float('inf')
     t0 = time.time()
+    grad_norm_warn = getattr(train_config, 'grad_norm_warn', 5.0)
     
     while iter_num < train_config.max_iters:
         for x, y in train_loader:
@@ -116,7 +118,22 @@ def train():
             
             # 梯度裁剪
             if train_config.grad_clip != 0.0:
-                torch.nn.utils.clip_grad_norm_(model.parameters(), train_config.grad_clip)
+                grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), train_config.grad_clip).item()
+            else:
+                total_norm_sq = 0.0
+                for param in model.parameters():
+                    if param.grad is not None:
+                        param_norm = param.grad.detach().data.norm(2)
+                        total_norm_sq += param_norm.item() ** 2
+                grad_norm = total_norm_sq ** 0.5
+
+            if not math.isfinite(grad_norm):
+                warnings.warn(f"iter {iter_num}: grad_norm is non-finite ({grad_norm})", RuntimeWarning)
+            elif grad_norm > grad_norm_warn:
+                warnings.warn(
+                    f"iter {iter_num}: grad_norm={grad_norm:.4f} 超过阈值 {grad_norm_warn:.4f}",
+                    RuntimeWarning
+                )
             
             optimizer.step()
             
@@ -125,7 +142,7 @@ def train():
                 t1 = time.time()
                 dt = t1 - t0
                 t0 = t1
-                print(f"iter {iter_num}: loss {loss.item():.4f}, lr {lr:.2e}, time {dt*1000:.2f}ms")
+                print(f"iter {iter_num}: loss {loss.item():.4f}, grad_norm {grad_norm:.4f}, lr {lr:.2e}, time {dt*1000:.2f}ms")
             
             # 评估
             if iter_num % train_config.eval_interval == 0 and iter_num > 0:

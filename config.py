@@ -38,6 +38,7 @@ class TrainConfig:
     beta1 = 0.9
     beta2 = 0.95
     grad_clip = 0.1           # 0.5 → 0.1（更严格）
+    grad_norm_warn = 5.0      # 梯度范数告警阈值
     
     # 学习率调度
     warmup_iters = 100
