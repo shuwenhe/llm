@@ -162,7 +162,7 @@ class GPT(nn.Module):
         return sum(p.numel() for p in self.parameters())
 
     @torch.no_grad()
-    def generate(self, idx, max_new_tokens, temperature=1.0, top_k=None):
+    def generate(self, idx, max_new_tokens, temperature=1.0, top_k=None, top_p=None, repetition_penalty=1.0):
         """
         生成文本
         idx: (b, t) 当前上下文的token索引
@@ -175,10 +175,31 @@ class GPT(nn.Module):
             logits, _ = self(idx_cond)
             # 只取最后一个时间步
             logits = logits[:, -1, :] / temperature
+            # 重复惩罚（降低已出现token再次被采样的概率）
+            if repetition_penalty != 1.0:
+                for b in range(idx.size(0)):
+                    prev_tokens = torch.unique(idx[b])
+                    logits[b, prev_tokens] = logits[b, prev_tokens] / repetition_penalty
+
             # 可选：top-k采样
             if top_k is not None:
                 v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
                 logits[logits < v[:, [-1]]] = -float('Inf')
+
+            # 可选：top-p (nucleus) 采样
+            if top_p is not None and 0.0 < top_p < 1.0:
+                sorted_logits, sorted_indices = torch.sort(logits, descending=True, dim=-1)
+                sorted_probs = F.softmax(sorted_logits, dim=-1)
+                cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
+
+                sorted_indices_to_remove = cumulative_probs > top_p
+                sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
+                sorted_indices_to_remove[..., 0] = 0
+
+                indices_to_remove = torch.zeros_like(logits, dtype=torch.bool)
+                indices_to_remove.scatter_(1, sorted_indices, sorted_indices_to_remove)
+                logits = logits.masked_fill(indices_to_remove, -float('Inf'))
+
             # 应用softmax获取概率
             probs = F.softmax(logits, dim=-1)
             # 采样

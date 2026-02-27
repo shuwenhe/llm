@@ -1,4 +1,5 @@
 """文本生成脚本"""
+import re
 import torch
 from model import GPT
 from config import ModelConfig
@@ -19,7 +20,20 @@ def load_model(checkpoint_path):
     return model, model_config
 
 
-def generate_text(prompt, model, tokenizer, device, max_new_tokens=100, temperature=0.8, top_k=40):
+def post_process_text(text):
+    """轻量后处理：清理维基标记与多余符号"""
+    text = text.replace(' @-@ ', '-')
+    text = text.replace('@-@', '-')
+    text = text.replace(' @,@ ', ',')
+    text = text.replace('@,@', ',')
+    text = text.replace(' @.@ ', '.')
+    text = text.replace('@.@', '.')
+    text = re.sub(r'(\s*=\s*){2,}', ' ', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+
+def generate_text(prompt, model, tokenizer, device, max_new_tokens=100, temperature=0.8, top_k=40, top_p=0.9, repetition_penalty=1.1):
     """生成文本"""
     model.eval()
     model.to(device)
@@ -36,11 +50,14 @@ def generate_text(prompt, model, tokenizer, device, max_new_tokens=100, temperat
             tokens,
             max_new_tokens=max_new_tokens,
             temperature=temperature,
-            top_k=top_k
+            top_k=top_k,
+            top_p=top_p,
+            repetition_penalty=repetition_penalty
         )
     
     # 解码
     generated_text = tokenizer.decode(generated_tokens[0].tolist())
+    generated_text = post_process_text(generated_text)
     return generated_text
 
 
@@ -62,9 +79,9 @@ def main():
     
     # 预设参数
     presets = {
-        '1': {'name': '保守模式', 'temp': 0.7, 'top_k': 50, 'tokens': 150},
-        '2': {'name': '平衡模式', 'temp': 0.8, 'top_k': 200, 'tokens': 250},
-        '3': {'name': '创意模式', 'temp': 1.0, 'top_k': 300, 'tokens': 300},
+        '1': {'name': '保守模式', 'temp': 0.65, 'top_k': 40, 'top_p': 0.85, 'rp': 1.15, 'tokens': 120},
+        '2': {'name': '平衡模式', 'temp': 0.75, 'top_k': 120, 'top_p': 0.9, 'rp': 1.1, 'tokens': 180},
+        '3': {'name': '创意模式', 'temp': 0.9, 'top_k': 200, 'top_p': 0.95, 'rp': 1.05, 'tokens': 240},
     }
     
     # 交互式生成
@@ -73,7 +90,7 @@ def main():
     print("="*50)
     print("\n📝 生成模式:")
     for k, v in presets.items():
-        print(f"  {k}. {v['name']} (temperature={v['temp']}, top_k={v['top_k']}, tokens={v['tokens']})")
+        print(f"  {k}. {v['name']} (temperature={v['temp']}, top_k={v['top_k']}, top_p={v['top_p']}, repetition_penalty={v['rp']}, tokens={v['tokens']})")
     print("\n💡 提示词示例:")
     print("  - Once upon a time")
     print("  - The meaning of life is")
@@ -105,7 +122,9 @@ def main():
             device,
             max_new_tokens=current_preset['tokens'],
             temperature=current_preset['temp'],
-            top_k=current_preset['top_k']
+            top_k=current_preset['top_k'],
+            top_p=current_preset['top_p'],
+            repetition_penalty=current_preset['rp']
         )
         
         print(f"\n生成结果 [{current_preset['name']}]:\n{generated}\n")
