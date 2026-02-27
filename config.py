@@ -39,6 +39,8 @@ class TrainConfig:
     beta2 = 0.95
     grad_clip = 0.1           # 0.5 → 0.1（更严格）
     grad_norm_warn = 5.0      # 梯度范数告警阈值
+    grad_norm_warn_start = 100  # 从第几步开始检查告警（默认warmup后）
+    grad_norm_warn_interval = 50  # 告警最小间隔步数（防止刷屏）
     
     # 学习率调度
     warmup_iters = 100

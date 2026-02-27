@@ -98,6 +98,9 @@ def train():
     best_val_loss = float('inf')
     t0 = time.time()
     grad_norm_warn = getattr(train_config, 'grad_norm_warn', 5.0)
+    grad_norm_warn_start = getattr(train_config, 'grad_norm_warn_start', train_config.warmup_iters)
+    grad_norm_warn_interval = getattr(train_config, 'grad_norm_warn_interval', 50)
+    last_grad_warn_iter = -10**9
     
     while iter_num < train_config.max_iters:
         for x, y in train_loader:
@@ -129,11 +132,17 @@ def train():
 
             if not math.isfinite(grad_norm):
                 warnings.warn(f"iter {iter_num}: grad_norm is non-finite ({grad_norm})", RuntimeWarning)
-            elif grad_norm > grad_norm_warn:
+                last_grad_warn_iter = iter_num
+            elif (
+                iter_num >= grad_norm_warn_start
+                and grad_norm > grad_norm_warn
+                and (iter_num - last_grad_warn_iter) >= grad_norm_warn_interval
+            ):
                 warnings.warn(
                     f"iter {iter_num}: grad_norm={grad_norm:.4f} 超过阈值 {grad_norm_warn:.4f}",
                     RuntimeWarning
                 )
+                last_grad_warn_iter = iter_num
             
             optimizer.step()
             
