@@ -14,17 +14,33 @@
 
 ```
 llm/
-├── config.py          # 模型和训练配置
-├── model.py           # GPT模型实现
-├── data.py            # 数据加载和处理
-├── train.py           # 训练脚本
-├── generate.py        # 文本生成脚本
-├── requirements.txt   # 依赖包
-└── checkpoints/       # 模型保存目录（自动创建）
+├─ 核心文件
+├─ config.py          # 模型和训练配置
+├─ model.py           # GPT模型实现
+├─ data.py            # 数据加载和处理
+├─ train.py           # 训练脚本
+├─ generate.py        # 文本生成脚本
+├─ test_model.py      # 模型测试
+├─ requirements.txt   # 依赖程序
+├─ Makefile           # Make加速命令
+├─ setup.sh           # 自动设置脚本
+├─ .gitignore         # Git忽略配置
+├─ README.md          # 项目轻转
+├─
+├─ 文档
+├─ docs/              # 详细文档
+│  ├─ INSTALL.md       # 安装指南（横跨 Linux/macOS/Windows）
+│  ├─ MATHEMATICS.md    # 数学知识分析
+│  └─ VENV_ISSUE.md     # 虚拟环境问题解决
+├─
+├─ 数据与模型
+├─ checkpoints/      # 模型下载位置（自动创建）
+├─ data/              # 数据下载位置（自动创建）
+├─ logs/              # 训练日妋（自动创建）
 ```
 
 ## 🚀 快速开始
-> 💡 **遇到安装问题？** 查看详细的 [安装指南 (INSTALL.md)](INSTALL.md)
+> 💡 **遇到安装问题？** 查看详细的 [安装指南 (INSTALL.md)](docs/INSTALL.md)
 
 
 ### 方式一：使用 Makefile（推荐）
@@ -156,6 +172,8 @@ eval_interval = 500   # 评估间隔
 2. **数据处理**: 查看 [`data.py`](data.py) 了解数据准备流程
 3. **训练过程**: 阅读 [`train.py`](train.py) 学习训练循环
 4. **文本生成**: 探索 [`generate.py`](generate.py) 了解推理过程
+
+> 💡 **深入了解数学原理？** 查看 [MATHEMATICS.md](docs/MATHEMATICS.md) - 详细分析项目中用到的所有数学知识（线性代数、微积分、概率论等）
 
 ## 📈 扩展建议
 

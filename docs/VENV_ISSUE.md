@@ -123,7 +123,7 @@ sudo rm /usr/lib/python3.*/EXTERNALLY-MANAGED
 ## 📚 更多信息
 
 - 详细安装指南: [INSTALL.md](INSTALL.md)
-- 项目文档: [README.md](README.md)
+- 项目文档: [README.md](../README.md)
 - PEP 668 说明: https://peps.python.org/pep-0668/
 
 ## 🆘 仍然有问题？

@@ -257,7 +257,7 @@ pip install -r requirements.txt
 - Transformers: 4.30.0+
 - Datasets: 2.12.0+
 
-完整依赖列表见 [requirements.txt](requirements.txt)
+完整依赖列表见 [requirements.txt](../requirements.txt)
 
 ## 🧪 验证安装
 
@@ -280,7 +280,7 @@ python test_model.py
 
 如果遇到问题：
 
-1. 查看 [README.md](README.md) 的常见问题部分
+1. 查看 [README.md](../README.md) 的常见问题部分
 2. 确保使用了最新版本的代码
 3. 检查 Python 版本：`python --version`
 4. 检查依赖安装：`make check-deps`
@@ -289,7 +289,7 @@ python test_model.py
 
 安装完成后：
 
-1. 阅读 [README.md](README.md) 了解项目结构
+1. 阅读 [README.md](../README.md) 了解项目结构
 2. 运行 `make test` 测试模型
 3. 运行 `make train` 开始训练
-4. 查看 [config.py](config.py) 自定义模型配置
+4. 查看 [config.py](../config.py) 自定义模型配置
