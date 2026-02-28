@@ -79,8 +79,9 @@ def test_model():
     print(f"✅ 所有测试通过！模型工作正常。")
     print(f"="*50)
     print(f"\n下一步:")
-    print(f"  1. 运行 'make bootstrap-check' 进行基础验收")
-    print(f"  2. 逐模块将 training/inference 切换到自研后端")
+    print(f"  1. 运行 'make train'（或 'make train-core'）开始自研后端训练")
+    print(f"  2. 运行 'make serve-core' 启动自研后端 API 服务")
+    print(f"  3. 运行 'make generate' 或 'make quick-generate' 验证推理链路")
 
 
 if __name__ == "__main__":

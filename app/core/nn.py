@@ -236,3 +236,97 @@ class ModuleDict(Module):
             elif isinstance(module, Parameter):
                 params.append(module)
         return params
+
+
+class MultiHeadAttention(Module):
+    """多头自注意力机制（带因果遮罩）"""
+    def __init__(self, n_embd, n_heads, dropout=0.1, max_seq_len=2048):
+        assert n_embd % n_heads == 0, "n_embd 必须能被 n_heads 整除"
+        self.n_heads = n_heads
+        self.n_embd = n_embd
+        self.head_dim = n_embd // n_heads
+        
+        # QKV 投影
+        self.qkv = Linear(n_embd, 3 * n_embd, bias=True)
+        self.out_proj = Linear(n_embd, n_embd, bias=True)
+        self.attn_dropout = Dropout(dropout)
+        self.resid_dropout = Dropout(dropout)
+        
+        # 因果遮罩（下三角矩阵）
+        self.causal_mask = np.tril(np.ones((max_seq_len, max_seq_len)))
+    
+    def __call__(self, x):
+        B, T, C = x.data.shape
+        
+        # QKV 投影: (B, T, 3*C)
+        qkv = self.qkv(x)
+        qkv_data = qkv.data.reshape(B, T, 3, self.n_heads, self.head_dim)
+        qkv_data = qkv_data.transpose(2, 0, 3, 1, 4)  # (3, B, nh, T, hd)
+        q, k, v = qkv_data[0], qkv_data[1], qkv_data[2]  # 每个 (B, nh, T, hd)
+        
+        # 注意力分数: Q @ K^T / sqrt(d_k)
+        att = (q @ k.transpose(0, 1, 3, 2)) / np.sqrt(self.head_dim)  # (B, nh, T, T)
+        
+        # 应用因果遮罩（将上三角设为很小的值）
+        mask = self.causal_mask[:T, :T]
+        att = np.where(mask == 1, att, -1e9)
+        
+        # Softmax
+        att = self._softmax(att, axis=-1)
+        
+        # Dropout（训练时）
+        if self.attn_dropout.training and self.attn_dropout.p > 0:
+            dropout_mask = np.random.binomial(1, 1 - self.attn_dropout.p, size=att.shape) / (1 - self.attn_dropout.p)
+            att = att * dropout_mask
+        
+        # 加权求和: (B, nh, T, T) @ (B, nh, T, hd) -> (B, nh, T, hd)
+        y = att @ v
+        
+        # 重新组合多头: (B, nh, T, hd) -> (B, T, C)
+        y = y.transpose(0, 2, 1, 3).reshape(B, T, C)
+        y_tensor = Tensor(y, requires_grad=x.requires_grad)
+        
+        # 输出投影
+        out = self.out_proj(y_tensor)
+        out = self.resid_dropout(out)
+        
+        return out
+    
+    def _softmax(self, x, axis=-1):
+        """数值稳定的 softmax"""
+        x_max = x.max(axis=axis, keepdims=True)
+        exp_x = np.exp(x - x_max)
+        return exp_x / exp_x.sum(axis=axis, keepdims=True)
+
+
+class MLP(Module):
+    """前馈神经网络（Transformer 的 FFN）"""
+    def __init__(self, n_embd, hidden_dim=None, dropout=0.1):
+        if hidden_dim is None:
+            hidden_dim = 4 * n_embd
+        self.fc1 = Linear(n_embd, hidden_dim)
+        self.gelu = GELU()
+        self.fc2 = Linear(hidden_dim, n_embd)
+        self.dropout = Dropout(dropout)
+    
+    def __call__(self, x):
+        x = self.fc1(x)
+        x = self.gelu(x)
+        x = self.fc2(x)
+        x = self.dropout(x)
+        return x
+
+
+class TransformerBlock(Module):
+    """Transformer 块：LayerNorm -> Attention -> Residual -> LayerNorm -> MLP -> Residual"""
+    def __init__(self, n_embd, n_heads, dropout=0.1):
+        self.ln1 = LayerNorm(n_embd)
+        self.attn = MultiHeadAttention(n_embd, n_heads, dropout)
+        self.ln2 = LayerNorm(n_embd)
+        self.mlp = MLP(n_embd, dropout=dropout)
+    
+    def __call__(self, x):
+        # Pre-norm architecture
+        x = x + self.attn(self.ln1(x))
+        x = x + self.mlp(self.ln2(x))
+        return x

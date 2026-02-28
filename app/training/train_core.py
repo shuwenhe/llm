@@ -13,12 +13,32 @@ from app.core.tokenizer import CharTokenizer
 
 def _sample_corpus():
     return [
-        "北京是中国的首都。",
-        "人工智能正在改变世界。",
-        "语言模型可以生成文本。",
-        "机器学习需要数据和算力。",
-        "模型训练要关注损失函数下降。",
-    ] * 200
+        "北京是中国的首都，位于华北平原中部。",
+        "人工智能正在改变世界，推动社会进步。",
+        "语言模型可以生成文本，理解语义信息。",
+        "机器学习需要数据和算力，还需要算法。",
+        "模型训练要关注损失函数下降，学习率很重要。",
+        "深度学习在计算机视觉领域取得了巨大成就。",
+        "自然语言处理技术在电商和搜索引擎中广泛应用。",
+        "神经网络通过反向传播算法实现参数更新。",
+        "数据预处理对模型训练的质量有重要影响。",
+        "特征工程是机器学习中的关键环节。",
+        "超参数调优需要在验证集上反复测试。",
+        "正则化技术可以防止模型过拟合。",
+        "批归一化加快了神经网络的训练速度。",
+        "注意力机制大幅提高了序列模型的性能。",
+        "transformers架构革命了自然语言处理。",
+        "迁移学习让我们可以利用预训练模型。",
+        "多任务学习能够提高模型的泛化能力。",
+        "知识蒸馏可以将大模型压缩为小模型。",
+        "梯度裁剪防止了训练过程中的梯度爆炸。",
+        "学习率预热有助于模型的稳定训练。",
+        "对数据进行增强可以扩大训练集的规模。",
+        "交叉验证是评估模型性能的重要方法。",
+        "集成学习通过多个模型的组合提高准确率。",
+        "强化学习让机器可以通过奖励学习策略。",
+        "生成对抗网络可以生成逼真的虚假数据。",
+    ] * 20
 
 
 def _make_batches(token_ids, batch_size, seq_len):
@@ -31,7 +51,7 @@ def _make_batches(token_ids, batch_size, seq_len):
         yield x, y
 
 
-def train_core(batch_size=8, epochs=1, learning_rate=3e-3, output="checkpoints/model_core.pkl"):
+def train_core(batch_size=8, epochs=3, learning_rate=3e-3, output="checkpoints/model_core.pkl"):
     np.random.seed(42)
 
     texts = _sample_corpus()
@@ -40,8 +60,8 @@ def train_core(batch_size=8, epochs=1, learning_rate=3e-3, output="checkpoints/m
     for t in texts:
         all_tokens.extend(tokenizer.encode(t))
 
-    seq_len = 32
-    model = TinyLM(vocab_size=tokenizer.vocab_size, n_embd=128)
+    seq_len = 64
+    model = TinyLM(vocab_size=tokenizer.vocab_size, n_embd=512)
     optimizer = AdamW(model.parameters(), lr=learning_rate)
 
     steps_per_epoch = 10
@@ -65,7 +85,7 @@ def train_core(batch_size=8, epochs=1, learning_rate=3e-3, output="checkpoints/m
         "backend": "core",
         "model": {
             "vocab_size": tokenizer.vocab_size,
-            "n_embd": 128,
+            "n_embd": 512,
             "state_dict": state_dict,
         },
         "tokenizer": tokenizer.to_dict(),
