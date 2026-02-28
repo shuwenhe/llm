@@ -1,14 +1,23 @@
-# 从零开发大语言模型 (LLM)
+# LLM 工业级训练系统
 
-一个从零实现的GPT风格大语言模型训练项目，包含完整的训练、评估和生成功能。
+一个完整的、OpenAI风格的、工业级的大语言模型训练系统。
 
-## 🌟 特性
+## 🚀 快速开始
+
+**👋 首次使用？从这里开始：** [docs/START_HERE.md](docs/START_HERE.md)
+
+```bash
+python train_cli.py --preset quick
+```
+
+## 🌟 核心特性
 
 - 🔧 **完整实现**: 从数据处理到模型训练的完整流程
 - 🎯 **GPT架构**: 基于Transformer的自回归语言模型
 - 📊 **可配置**: 灵活的模型和训练配置
 - 🚀 **易用**: 简洁的API和清晰的代码结构
 - 💡 **教育性**: 注释详尽，适合学习
+- ⭐ **工业级**: OpenAI风格的命令行 + 完整文档
 
 ## 📁 项目结构
 
@@ -279,13 +288,32 @@ eval_interval = 500   # 评估间隔
 3. **训练过程**: 阅读 [`train.py`](train.py) 学习训练循环
 4. **文本生成**: 探索 [`generate.py`](generate.py) 了解推理过程
 
-### 📖 详细文档
+### 📖 完整文档系统
 
-- 💡 **深度学习知识全解析**: [DEEP_LEARNING.md](docs/DEEP_LEARNING.md) - 详细讲解项目中用到的所有深度学习概念（Transformer、注意力机制、优化算法、正则化等）
-- � **模型优化指南**: [OPTIMIZATION.md](docs/OPTIMIZATION.md) - 系统的优化方案，提升生成质量和训练效率
-- �📐 **数学知识分析**: [MATHEMATICS.md](docs/MATHEMATICS.md) - 详细分析项目中用到的所有数学知识（线性代数、微积分、概率论等）
-- 🔧 **安装指南**: [INSTALL.md](docs/INSTALL.md) - Linux/macOS/Windows完整安装指南
-- 🐍 **虚拟环境问题**: [VENV_ISSUE.md](docs/VENV_ISSUE.md) - 解决Python虚拟环境常见问题
+**👋 首次使用？请从这里开始：** [**docs/START_HERE.md**](docs/START_HERE.md)
+
+所有项目文档都在 **docs/** 目录。以下是主要文档：
+
+**快速参考**:
+- 🚀 [START_HERE.md](docs/START_HERE.md) - 新用户入门指南
+- ⚡ [QUICK_REFERENCE.md](docs/QUICK_REFERENCE.md) - 1页速查卡
+- 📋 [CHEATSHEET.md](docs/CHEATSHEET.md) - 核心命令速记
+- 📖 [commands_reference.md](docs/commands_reference.md) - 完整命令参考
+
+**深度学习**:
+- 🔍 [checkpoint_system.md](docs/checkpoint_system.md) - 检查点系统详解
+- 📊 [training_visualization.md](docs/training_visualization.md) - 实时训练监控
+- 🏭 [openai_training_guide.md](docs/openai_training_guide.md) - 工业级训练指南
+- ⚖️ [openai_vs_local_comparison.md](docs/openai_vs_local_comparison.md) - OpenAI对比分析
+
+**更新文档**:
+- 📝 [UPDATE_SUMMARY.md](docs/UPDATE_SUMMARY.md) - 完整更新说明
+- 🎯 [CHECKPOINT_UPDATE.md](docs/CHECKPOINT_UPDATE.md) - 检查点改进说明
+- 📊 [BEFORE_AND_AFTER.md](docs/BEFORE_AND_AFTER.md) - 改进前后对比
+
+**文档导航**:
+- 🗺️ [README_DOCS.md](docs/README_DOCS.md) - 文档导航和索引
+- 📚 [TRAINING_README.md](docs/TRAINING_README.md) - 训练系统完整说明
 
 ## 📈 扩展建议
 
