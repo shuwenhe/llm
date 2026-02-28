@@ -41,6 +41,8 @@ checkpoints/
 *.pth
 wandb/
 logs/
+*.log
+training.log
 
 # Data
 data/
