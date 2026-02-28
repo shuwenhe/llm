@@ -8,9 +8,9 @@ from tqdm import tqdm
 import requests
 from io import BytesIO
 
-from config import ModelConfig
-from model import GPT
-from data import load_tokenizer
+from app.modeling.config import ModelConfig
+from app.modeling.model import GPT
+from app.modeling.data import load_tokenizer
 
 
 class SimpleCaptionDataset(Dataset):

@@ -13,9 +13,9 @@ from PIL import Image
 from pathlib import Path
 from tqdm import tqdm
 
-from config import ModelConfig
-from model import GPT
-from data import load_tokenizer
+from app.modeling.config import ModelConfig
+from app.modeling.model import GPT
+from app.modeling.data import load_tokenizer
 
 
 class LocalImageCaptionDataset(Dataset):

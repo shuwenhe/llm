@@ -1,0 +1,21 @@
+version: '3.9'
+
+services:
+  gateway:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    image: my-llm:latest
+    container_name: llm-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - LLM_CHECKPOINT=checkpoints/best_model.pt
+      - LLM_API_KEYS=${LLM_API_KEYS:-}
+      - LLM_USERS=${LLM_USERS:-}
+      - LLM_JWT_SECRET=${LLM_JWT_SECRET:-change-me-in-production}
+      - LLM_RATE_LIMIT_RPM=${LLM_RATE_LIMIT_RPM:-60}
+      - LLM_SESSION_DB=/app/data/sessions.db
+    volumes:
+      - ../../checkpoints:/app/checkpoints:ro
+      - ../../data_runtime:/app/data

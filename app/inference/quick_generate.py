@@ -1,9 +1,9 @@
 """快速文本生成测试脚本"""
 import os
 import torch
-from model import GPT
-from config import ModelConfig
-from data import load_tokenizer
+from app.modeling.model import GPT
+from app.modeling.config import ModelConfig
+from app.modeling.data import load_tokenizer
 
 
 def quick_test():

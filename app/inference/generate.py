@@ -2,9 +2,9 @@
 import os
 import re
 import torch
-from model import GPT
-from config import ModelConfig
-from data import load_tokenizer
+from app.modeling.model import GPT
+from app.modeling.config import ModelConfig
+from app.modeling.data import load_tokenizer
 
 
 def load_model(checkpoint_path):

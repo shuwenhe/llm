@@ -7,9 +7,9 @@ import warnings
 from torch.nn import functional as F
 from tqdm import tqdm
 
-from config import ModelConfig, TrainConfig
-from model import GPT
-from data import prepare_data, create_dataloader
+from app.modeling.config import ModelConfig, TrainConfig
+from app.modeling.model import GPT
+from app.modeling.data import prepare_data, create_dataloader
 
 
 def unpack_batch(batch, device):

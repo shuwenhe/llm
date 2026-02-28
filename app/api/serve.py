@@ -23,9 +23,9 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
 from pydantic import BaseModel, Field
 
-from config import ModelConfig
-from data import load_tokenizer
-from model import GPT
+from app.modeling.config import ModelConfig
+from app.modeling.data import load_tokenizer
+from app.modeling.model import GPT
 
 try:
     from PIL import Image

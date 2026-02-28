@@ -2,8 +2,8 @@
 import os
 import torch
 from pathlib import Path
-from config import ModelConfig
-from model import GPT
+from app.modeling.config import ModelConfig
+from app.modeling.model import GPT
 
 
 def create_demo_model(output_path="checkpoints/best_model.pt"):

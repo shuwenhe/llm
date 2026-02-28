@@ -1,7 +1,7 @@
 """快速测试模型是否正常工作"""
 import torch
-from config import ModelConfig
-from model import GPT
+from app.modeling.config import ModelConfig
+from app.modeling.model import GPT
 
 
 def test_model():

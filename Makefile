@@ -1,10 +1,10 @@
-.PHONY: help install test train train-basic train-multimodal train-vision train-vision-quick train-chinese serve serve-dev obs-up obs-down generate quick-generate quick-test-multimodal demo clean clean-checkpoints clean-all frontend-install frontend-dev frontend-build frontend-start kill-frontend kill-backend dev-all
+.PHONY: help install test train train-basic train-multimodal train-vision train-vision-quick train-chinese serve serve-dev obs-up obs-down generate quick-generate quick-test-multimodal demo gateway inference-generate inference-quick deploy-local-up deploy-local-down clean clean-checkpoints clean-all frontend-install frontend-dev frontend-build frontend-start kill-frontend kill-backend dev-all
 
 # Python解释器（优先使用项目内虚拟环境）
 PYTHON := $(shell if [ -x ./venv/bin/python ]; then echo ./venv/bin/python; else echo python3; fi)
 
-# Python路径（使脚本能够找到src/models中的模块）
-export PYTHONPATH:=src/models:src
+# Python路径（以app为唯一源码根）
+export PYTHONPATH:=.
 
 # 核心模型 checkpoint (所有模态共用)
 CORE_MODEL_CHECKPOINT ?= checkpoints/model.pt
@@ -70,10 +70,15 @@ help:
 	@echo "${YELLOW}可观测性:${NC}"
 	@echo "  make obs-up           - 启动可观测性栈(LLM+Prometheus+Grafana)"
 	@echo "  make obs-down         - 停止可观测性栈"
+	@echo "  make deploy-local-up  - 启动本地标准部署编排(deploy/local)"
+	@echo "  make deploy-local-down - 停止本地标准部署编排(deploy/local)"
 	@echo ""
 	@echo "${YELLOW}工具与测试:${NC}"
 	@echo "  make generate         - 运行交互式文本生成"
 	@echo "  make quick-generate   - 批量测试生成参数"
+	@echo "  make gateway          - 启动网关服务(services/gateway)"
+	@echo "  make inference-generate - 通过services边界运行生成"
+	@echo "  make inference-quick  - 通过services边界运行快速生成"
 	@echo "  make demo             - 创建演示模型(无需训练，快速测试)"
 	@echo "  make quick-test       - 快速测试(验证模型可用)"
 	@echo "  make quick-test-multimodal - 快速测试多模态前向(文本+图像+语音)"
@@ -162,12 +167,12 @@ train:
 # 基础文本训练（原始训练脚本）
 train-basic:
 	@echo "开始基础文本训练..."
-	$(PYTHON) src/training/train.py
+	$(PYTHON) -m app.training.train
 
 # 多模态训练
 train-multimodal:
 	@echo "开始多模态训练模型..."
-	LLM_MULTIMODAL=1 $(PYTHON) src/training/train.py
+	LLM_MULTIMODAL=1 $(PYTHON) -m app.training.train
 
 # 视觉编码器训练（支持参数覆盖）
 # 示例:
@@ -177,7 +182,7 @@ train-multimodal:
 train-vision:
 	@echo "开始训练视觉编码器..."
 	@echo "data_source=$(VISION_DATA_SOURCE), batch_size=$(VISION_BATCH_SIZE), epochs=$(VISION_EPOCHS), max_steps=$(VISION_MAX_STEPS), lr=$(VISION_LR)"
-	$(PYTHON) src/training/train_vision_real.py \
+	$(PYTHON) -m app.training.train_vision_real \
 		--data-source $(VISION_DATA_SOURCE) \
 		--dataset-name $(VISION_DATASET_NAME) \
 		--batch-size $(VISION_BATCH_SIZE) \
@@ -200,7 +205,7 @@ train-vision-quick:
 train-chinese:
 	@echo "开始训练中文文本能力..."
 	@echo "batch_size=$(CHINESE_BATCH_SIZE), epochs=$(CHINESE_EPOCHS), lr=$(CHINESE_LR)"
-	$(PYTHON) src/training/train_chinese.py \
+	$(PYTHON) -m app.training.train_chinese \
 		--batch-size $(CHINESE_BATCH_SIZE) \
 		--epochs $(CHINESE_EPOCHS) \
 		--learning-rate $(CHINESE_LR) \
@@ -210,13 +215,17 @@ train-chinese:
 # 推理服务（开发）
 serve-dev:
 	@echo "启动推理API服务(开发模式)..."
-	$(PYTHON) -m uvicorn src.inference.serve:app --host 0.0.0.0 --port 8000 --reload
+	$(PYTHON) -m uvicorn app.api.serve:app --host 0.0.0.0 --port 8000 --reload
+
+gateway:
+	@echo "启动网关服务(服务边界入口)..."
+	$(PYTHON) -m uvicorn services.gateway.main:app --host 0.0.0.0 --port 8000 --reload
 
 # 推理服务（统一模型）
 serve:
 	@echo "启动推理API服务..."
 	@echo "使用统一模型: $(CORE_MODEL_CHECKPOINT)"
-	LLM_CHECKPOINT=$(CORE_MODEL_CHECKPOINT) $(PYTHON) -m uvicorn src.inference.serve:app --host 0.0.0.0 --port 8000 --reload
+	LLM_CHECKPOINT=$(CORE_MODEL_CHECKPOINT) $(PYTHON) -m uvicorn app.api.serve:app --host 0.0.0.0 --port 8000 --reload
 
 # 前端（Next.js）
 frontend-install:
@@ -290,22 +299,38 @@ dev-all:
 # 文本生成
 generate:
 	@echo "启动文本生成..."
-	$(PYTHON) src/inference/generate.py
+	$(PYTHON) -m app.inference.generate
+
+inference-generate:
+	@echo "通过services边界启动文本生成..."
+	$(PYTHON) -m services.inference.generate
 
 # 快速生成测试（批量测试不同参数）
 quick-generate:
 	@echo "批量测试生成参数..."
-	$(PYTHON) src/inference/quick_generate.py
+	$(PYTHON) -m app.inference.quick_generate
+
+inference-quick:
+	@echo "通过services边界批量测试生成参数..."
+	$(PYTHON) -m services.inference.quick_generate
+
+deploy-local-up:
+	@echo "启动本地标准部署编排..."
+	docker compose -f deploy/local/docker-compose.yml up -d --build
+
+deploy-local-down:
+	@echo "停止本地标准部署编排..."
+	docker compose -f deploy/local/docker-compose.yml down
 
 # 创建演示模型（用于快速测试，无需训练）
 demo:
 	@echo "创建演示模型..."
-	$(PYTHON) src/inference/create_demo_model.py
+	$(PYTHON) -m app.inference.create_demo_model
 
 # 快速测试（用于验证代码）
 quick-test:
 	@echo "快速测试模式..."
-	$(PYTHON) -c "from model import GPT; from config import ModelConfig; \
+	$(PYTHON) -c "from app.modeling.model import GPT; from app.modeling.config import ModelConfig; \
 		config = ModelConfig(n_layer=2, n_head=2, n_embd=128); \
 		model = GPT(config); \
 		print(f'模型参数: {model.get_num_params()/1e6:.2f}M'); \
@@ -314,7 +339,7 @@ quick-test:
 # 多模态快速测试（随机输入）
 quick-test-multimodal:
 	@echo "多模态快速测试模式..."
-	$(PYTHON) -c "import torch; from model import GPT; from config import ModelConfig; \
+	$(PYTHON) -c "import torch; from app.modeling.model import GPT; from app.modeling.config import ModelConfig; \
 		config = ModelConfig(multimodal_enabled=True, n_layer=2, n_head=2, n_embd=128, block_size=256); \
 		model = GPT(config); \
 		idx = torch.randint(0, config.vocab_size, (2, 32)); \
@@ -352,7 +377,7 @@ clean-all: clean clean-checkpoints
 # 查看模型信息
 info:
 	@echo "模型信息:"
-	@$(PYTHON) -c "from model import GPT; from config import ModelConfig; \
+	@$(PYTHON) -c "from app.modeling.model import GPT; from app.modeling.config import ModelConfig; \
 		config = ModelConfig(); \
 		model = GPT(config); \
 		print(f'参数量: {model.get_num_params()/1e6:.2f}M'); \
