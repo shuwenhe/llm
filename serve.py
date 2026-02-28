@@ -16,7 +16,7 @@ from uuid import uuid4
 
 import jwt
 import torch
-from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, Response, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, Response, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -643,17 +643,16 @@ def generate(req: GenerateRequest, request: Request, identity: str = Depends(opt
 
 @app.post("/v1/generate-multipart", response_model=GenerateResponse)
 async def generate_multipart(
-    prompt: str = "",
-    max_new_tokens: int = 120,
-    temperature: float = 0.8,
-    top_k: int = 40,
-    top_p: float = 0.9,
-    repetition_penalty: float = 1.1,
-    session_id: Optional[str] = None,
-    use_history: bool = True,
-    max_history_messages: int = 8,
+    prompt: str = Form(""),
+    max_new_tokens: int = Form(120),
+    temperature: float = Form(0.8),
+    top_k: int = Form(40),
+    top_p: float = Form(0.9),
+    repetition_penalty: float = Form(1.1),
+    session_id: Optional[str] = Form(None),
+    use_history: bool = Form(True),
+    max_history_messages: int = Form(8),
     image: Optional[UploadFile] = File(None),
-    request_obj: Request = None,
     identity: str = Depends(optional_auth),
 ):
     """多部分表单生成端点 - 支持图片上传"""
@@ -661,7 +660,10 @@ async def generate_multipart(
         GENERATE_COUNT.labels(status="not_ready").inc()
         raise HTTPException(status_code=503, detail="model not ready")
 
-    if not prompt:
+    # 如果有图片但没有提示词，使用默认提示
+    if not prompt and image:
+        prompt = "请描述这张图片"
+    elif not prompt:
         raise HTTPException(status_code=400, detail="prompt is required")
 
     rpm_limit = get_rate_limit_rpm()

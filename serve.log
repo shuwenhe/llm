@@ -1,0 +1,205 @@
+nohup: ignoring input
+INFO:     Will watch for changes in these directories: ['/home/shuwen/llm']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [95122] using StatReload
+INFO:     Started server process [95131]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+{"event": "http_request", "request_id": "6783a0ef-4f2e-41d2-ab64-8180fe44f9a6", "method": "GET", "path": "/healthz", "status": 200, "latency_ms": 0.77}
+INFO:     127.0.0.1:47678 - "GET /healthz HTTP/1.1" 200 OK
+{"event": "http_request", "request_id": "916acc49-4652-48cd-9440-63526f5b4a8f", "method": "POST", "path": "/v1/generate-multipart", "status": 400, "latency_ms": 2.04}
+INFO:     127.0.0.1:49522 - "POST /v1/generate-multipart HTTP/1.1" 400 Bad Request
+{"event": "http_request", "request_id": "9580b82c-d87c-4ea6-80e8-b789980c9aa0", "method": "POST", "path": "/v1/generate-multipart", "status": 400, "latency_ms": 1.15}
+INFO:     127.0.0.1:49528 - "POST /v1/generate-multipart HTTP/1.1" 400 Bad Request
+WARNING:  StatReload detected changes in 'serve.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [95131]
+INFO:     Started server process [98129]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'serve.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [98129]
+WARNING:  StatReload detected changes in 'serve.py'. Reloading...
+INFO:     Started server process [98630]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [98630]
+INFO:     Started server process [98896]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+{"event": "http_request", "request_id": "8d625d3a-fb13-4c75-b92b-8a757258d689", "method": "POST", "path": "/v1/generate-multipart", "status": 200, "latency_ms": 404.76}
+INFO:     127.0.0.1:57724 - "POST /v1/generate-multipart HTTP/1.1" 200 OK
+{"event": "http_request", "request_id": "decefd64-fae2-4ba8-99e7-5949c459648d", "method": "POST", "path": "/v1/generate-multipart", "status": 200, "latency_ms": 1261.46}
+INFO:     127.0.0.1:44134 - "POST /v1/generate-multipart HTTP/1.1" 200 OK
+{"event": "http_request", "request_id": "1ab6afb7-004c-4ad7-a6f4-3786183584e2", "method": "POST", "path": "/v1/generate-multipart", "status": 200, "latency_ms": 1042.85}
+INFO:     127.0.0.1:48018 - "POST /v1/generate-multipart HTTP/1.1" 200 OK
+WARNING:  StatReload detected changes in 'train_vision.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [98896]
+INFO:     Started server process [111475]
+INFO:     Waiting for application startup.
+WARNING:  StatReload detected changes in 'train_vision.py'. Reloading...
+INFO:     Application startup complete.
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [111475]
+INFO:     Started server process [111769]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'train_vision_real.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [111769]
+INFO:     Started server process [113007]
+INFO:     Waiting for application startup.
+WARNING:  StatReload detected changes in 'train_vision_real.py'. Reloading...
+INFO:     Application startup complete.
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [113007]
+INFO:     Started server process [113328]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'train_vision_real.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [113328]
+INFO:     Started server process [122492]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'train_vision_real.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [122492]
+WARNING:  StatReload detected changes in 'train_vision_real.py'. Reloading...
+INFO:     Started server process [122862]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [122862]
+INFO:     Started server process [123170]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'train_vision.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [123170]
+INFO:     Started server process [129767]
+INFO:     Waiting for application startup.
+WARNING:  StatReload detected changes in 'train_vision.py'. Reloading...
+INFO:     Application startup complete.
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [129767]
+INFO:     Started server process [130091]
+INFO:     Waiting for application startup.
+WARNING:  StatReload detected changes in 'train_vision.py'. Reloading...
+INFO:     Application startup complete.
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [130091]
+INFO:     Started server process [130392]
+INFO:     Waiting for application startup.
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'train_vision.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [130392]
+WARNING:  StatReload detected changes in 'train_vision.py'. Reloading...
+INFO:     Started server process [131835]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [131835]
+INFO:     Started server process [132417]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'train_vision.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [132417]
+INFO:     Started server process [133243]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'train_vision.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [133243]
+INFO:     Started server process [135626]
+INFO:     Waiting for application startup.
+WARNING:  StatReload detected changes in 'train_vision.py'. Reloading...
+INFO:     Application startup complete.
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [135626]
+INFO:     Started server process [135988]
+INFO:     Waiting for application startup.
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'train_vision.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [135988]
+INFO:     Started server process [138912]
+INFO:     Waiting for application startup.
+WARNING:  StatReload detected changes in 'train_vision.py'. Reloading...
+INFO:     Application startup complete.
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [138912]
+INFO:     Started server process [139227]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'train_vision_real.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [139227]
+INFO:     Started server process [140158]
+INFO:     Waiting for application startup.
+WARNING:  StatReload detected changes in 'train_vision_real.py'. Reloading...
+INFO:     Application startup complete.
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [140158]
+INFO:     Started server process [140458]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'train_vision_real.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [140458]
+INFO:     Started server process [140989]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.

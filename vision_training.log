@@ -1,0 +1,17 @@
+nohup: ignoring input
+============================================================
+视觉编码器训练脚本 (真实数据)
+============================================================
+使用设备: cuda
+
+加载模型从 checkpoints/best_model.pt...
+
+配置训练参数...
+可训练参数: 592,128 / 124,628,736 (0.48%)
+
+准备数据集 (source=huggingface)...
+加载数据集 nlphuji/flickr30k (train)...
+错误: 无法加载数据集 - Dataset scripts are no longer supported, but found flickr30k.py
+
+提示: 如果使用 HuggingFace 数据集，请先安装: pip install datasets
+      如果使用本地数据，请确保数据格式正确

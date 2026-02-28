@@ -163,12 +163,15 @@ export default function Home() {
     setLoading(true);
     setInput("");
 
-    const finalPrompt = systemPrompt ? `${systemPrompt}\n${prompt}` : prompt;
-    const nextMessages: ChatMessage[] = [...messages, { role: "user", content: prompt }];
+    // 如果只有图片没有文字，使用默认提示
+    const userPrompt = prompt || "请描述这张图片";
+    const finalPrompt = systemPrompt ? `${systemPrompt}\n${userPrompt}` : userPrompt;
+    const nextMessages: ChatMessage[] = [...messages, { role: "user", content: prompt || "[图片]" }];
     setMessages(nextMessages);
 
     try {
-      // 如果有文件，使用FormData；否则使用JSON
+      // 如果有文件，使用multipart端点；否则使用JSON端点
+      let usedEndpoint = endpoint;
       let fetchOptions: RequestInit = {
         method: "POST",
         headers: {
@@ -187,8 +190,9 @@ export default function Home() {
         }),
       };
 
-      // 如果有选中的文件，改用FormData
+      // 如果有选中的文件，改用multipart端点和FormData
       if (selectedFiles.length > 0) {
+        usedEndpoint = `${apiBase}/v1/generate-multipart`;
         const formData = new FormData();
         formData.append("prompt", finalPrompt);
         formData.append("max_new_tokens", maxNewTokens.toString());
@@ -196,23 +200,23 @@ export default function Home() {
         formData.append("top_k", topK.toString());
         formData.append("top_p", topP.toString());
         formData.append("repetition_penalty", repetitionPenalty.toString());
-        formData.append("session_id", sessionId || "");
+        if (sessionId) formData.append("session_id", sessionId);
         formData.append("use_history", useHistory.toString());
         formData.append("max_history_messages", maxHistoryMessages.toString());
         
-        // 添加所有文件
-        selectedFiles.forEach((file) => {
-          formData.append("files", file);
-        });
+        // 只添加第一个图片文件（目前只支持单张图片）
+        if (selectedFiles[0]) {
+          formData.append("image", selectedFiles[0]);
+        }
 
         fetchOptions = {
           method: "POST",
           body: formData,
         };
-        delete fetchOptions.headers;
+        // 不要设置Content-Type，让浏览器自动设置multipart boundary
       }
 
-      const response = await fetch(endpoint, fetchOptions);
+      const response = await fetch(usedEndpoint, fetchOptions);
 
       if (!response.ok) {
         const detail = await response.text();
