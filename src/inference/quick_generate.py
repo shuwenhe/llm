@@ -1,4 +1,5 @@
 """快速文本生成测试脚本"""
+import os
 import torch
 from model import GPT
 from config import ModelConfig
@@ -9,6 +10,16 @@ def quick_test():
     """快速测试不同参数的生成效果"""
     # 配置
     checkpoint_path = "checkpoints/best_model.pt"
+    
+    if not os.path.exists(checkpoint_path):
+        print(f"❌ 模型检查点文件不存在: {checkpoint_path}\n")
+        print("请先训练模型:")
+        print("  make train              # 训练中文文本")
+        print("  make train-basic        # 基础文本训练")
+        print("  make train-vision       # 训练视觉编码器")
+        print("  make train-multimodal   # 多模态训练")
+        return
+    
     device = torch.device("cuda" if torch.cuda.is_available() else 
                          "mps" if torch.backends.mps.is_available() else "cpu")
     

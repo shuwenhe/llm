@@ -1,4 +1,4 @@
-.PHONY: help install test train train-basic train-multimodal train-vision train-vision-quick train-chinese serve serve-dev obs-up obs-down generate quick-generate quick-test-multimodal clean clean-checkpoints clean-all frontend-install frontend-dev frontend-build frontend-start kill-frontend kill-backend dev-all
+.PHONY: help install test train train-basic train-multimodal train-vision train-vision-quick train-chinese serve serve-dev obs-up obs-down generate quick-generate quick-test-multimodal demo clean clean-checkpoints clean-all frontend-install frontend-dev frontend-build frontend-start kill-frontend kill-backend dev-all
 
 # Python解释器（优先使用项目内虚拟环境）
 PYTHON := $(shell if [ -x ./venv/bin/python ]; then echo ./venv/bin/python; else echo python3; fi)
@@ -74,6 +74,7 @@ help:
 	@echo "${YELLOW}工具与测试:${NC}"
 	@echo "  make generate         - 运行交互式文本生成"
 	@echo "  make quick-generate   - 批量测试生成参数"
+	@echo "  make demo             - 创建演示模型(无需训练，快速测试)"
 	@echo "  make quick-test       - 快速测试(验证模型可用)"
 	@echo "  make quick-test-multimodal - 快速测试多模态前向(文本+图像+语音)"
 	@echo "  make info             - 查看模型配置信息"
@@ -295,6 +296,11 @@ generate:
 quick-generate:
 	@echo "批量测试生成参数..."
 	$(PYTHON) src/inference/quick_generate.py
+
+# 创建演示模型（用于快速测试，无需训练）
+demo:
+	@echo "创建演示模型..."
+	$(PYTHON) src/inference/create_demo_model.py
 
 # 快速测试（用于验证代码）
 quick-test:

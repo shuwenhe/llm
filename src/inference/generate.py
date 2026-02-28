@@ -1,4 +1,5 @@
 """文本生成脚本"""
+import os
 import re
 import torch
 from model import GPT
@@ -8,6 +9,16 @@ from data import load_tokenizer
 
 def load_model(checkpoint_path):
     """加载训练好的模型"""
+    if not os.path.exists(checkpoint_path):
+        raise FileNotFoundError(
+            f"❌ 模型检查点文件不存在: {checkpoint_path}\n\n"
+            f"请先训练模型:\n"
+            f"  make train              # 训练中文文本\n"
+            f"  make train-basic        # 基础文本训练\n"
+            f"  make train-vision       # 训练视觉编码器\n"
+            f"  make train-multimodal   # 多模态训练\n"
+        )
+    
     checkpoint = torch.load(checkpoint_path, map_location='cpu')
     
     # 创建模型配置
