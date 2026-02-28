@@ -87,9 +87,11 @@ class Tensor:
 
         def _backward():
             if self.requires_grad:
-                self.grad += out.grad @ np.swapaxes(other.data, -1, -2)
+                grad_self = out.grad @ np.swapaxes(other.data, -1, -2)
+                self.grad += _unbroadcast(grad_self, self.data.shape)
             if other.requires_grad:
-                other.grad += np.swapaxes(self.data, -1, -2) @ out.grad
+                grad_other = np.swapaxes(self.data, -1, -2) @ out.grad
+                other.grad += _unbroadcast(grad_other, other.data.shape)
 
         out._backward = _backward
         return out
