@@ -1,7 +1,29 @@
-.PHONY: help install test train train-multimodal serve serve-dev obs-up obs-down generate quick-generate quick-test-multimodal clean clean-checkpoints clean-all frontend-install frontend-dev frontend-build frontend-start kill-frontend kill-backend dev-all
+.PHONY: help install test train train-basic train-multimodal train-vision train-vision-quick train-chinese serve serve-dev obs-up obs-down generate quick-generate quick-test-multimodal clean clean-checkpoints clean-all frontend-install frontend-dev frontend-build frontend-start kill-frontend kill-backend dev-all
 
 # Python解释器（优先使用项目内虚拟环境）
 PYTHON := $(shell if [ -x ./venv/bin/python ]; then echo ./venv/bin/python; else echo python3; fi)
+
+# 核心模型 checkpoint (所有模态共用)
+CORE_MODEL_CHECKPOINT ?= checkpoints/model.pt
+
+# 视觉训练参数（可在命令行覆盖）
+VISION_DATA_SOURCE ?= cifar10
+VISION_BATCH_SIZE ?= 8
+VISION_EPOCHS ?= 1
+VISION_MAX_STEPS ?= 0
+VISION_LR ?= 1e-4
+VISION_DATASET_NAME ?= nlphuji/flickr30k
+VISION_CHECKPOINT ?= $(CORE_MODEL_CHECKPOINT)
+VISION_OUTPUT ?= $(CORE_MODEL_CHECKPOINT)
+
+# 中文文本训练参数（可在命令行覆盖）
+CHINESE_DATA_SOURCE ?= wikitext_zh
+CHINESE_BATCH_SIZE ?= 4
+CHINESE_EPOCHS ?= 3
+CHINESE_MAX_STEPS ?= 0
+CHINESE_LR ?= 1e-4
+CHINESE_CHECKPOINT ?= $(CORE_MODEL_CHECKPOINT)
+CHINESE_OUTPUT ?= $(CORE_MODEL_CHECKPOINT)
 
 # 颜色输出
 GREEN := \033[0;32m
@@ -22,9 +44,13 @@ help:
 	@echo ""
 	@echo "${YELLOW}开发与训练:${NC}"
 	@echo "  make test             - 运行模型测试"
-	@echo "  make train            - 开始训练模型"
-	@echo "  make train-multimodal - 开始完整多模态训练(文本+图像+语音)"
-	@echo "  make serve            - 启动推理API服务(生产模式)"
+	@echo "  make train            - 开始训练模型(默认:中文文本)"
+	@echo "  make train-chinese    - 训练中文文本能力"
+	@echo "  make train-vision     - 训练视觉编码器"
+	@echo "  make train-vision-quick - 视觉训练快速验证"
+	@echo "  make train-multimodal - 完整多模态训练"
+	@echo "  make train-basic      - 基础文本训练"
+	@echo "  make serve            - 启动推理API服务(使用统一模型)"
 	@echo "  make serve-dev        - 启动推理API服务(开发热更新)"
 	@echo ""
 	@echo "${YELLOW}前端开发 (Next.js):${NC}"
@@ -121,9 +147,17 @@ test:
 	@echo "运行模型测试..."
 	$(PYTHON) test_model.py
 
-# 训练模型
+# 训练模型（默认：中文文本训练）
 train:
 	@echo "开始训练模型..."
+	@echo "使用中文文本训练（推荐）"
+	@echo "其他选项: make train-vision, make train-multimodal, make train-basic"
+	@echo ""
+	$(MAKE) train-chinese
+
+# 基础文本训练（原始训练脚本）
+train-basic:
+	@echo "开始基础文本训练..."
 	$(PYTHON) train.py
 
 # 多模态训练
@@ -131,15 +165,54 @@ train-multimodal:
 	@echo "开始多模态训练模型..."
 	LLM_MULTIMODAL=1 $(PYTHON) train.py
 
-# 推理服务（生产）
-serve:
-	@echo "启动推理API服务(生产模式)..."
-	$(PYTHON) -m uvicorn serve:app --host 0.0.0.0 --port 8000
+# 视觉编码器训练（支持参数覆盖）
+# 示例:
+#   make train-vision
+#   make train-vision VISION_DATA_SOURCE=local VISION_EPOCHS=5
+#   make train-vision VISION_DATA_SOURCE=huggingface VISION_DATASET_NAME=nlphuji/flickr30k
+train-vision:
+	@echo "开始训练视觉编码器..."
+	@echo "data_source=$(VISION_DATA_SOURCE), batch_size=$(VISION_BATCH_SIZE), epochs=$(VISION_EPOCHS), max_steps=$(VISION_MAX_STEPS), lr=$(VISION_LR)"
+	$(PYTHON) train_vision_real.py \
+		--data-source $(VISION_DATA_SOURCE) \
+		--dataset-name $(VISION_DATASET_NAME) \
+		--batch-size $(VISION_BATCH_SIZE) \
+		--epochs $(VISION_EPOCHS) \
+		--max-steps $(VISION_MAX_STEPS) \
+		--lr $(VISION_LR) \
+		--checkpoint $(VISION_CHECKPOINT) \
+		--output $(VISION_OUTPUT)
+
+# 视觉编码器快速验证（默认只跑20步）
+train-vision-quick:
+	@echo "视觉训练快速验证(仅少量steps)..."
+	$(MAKE) train-vision VISION_MAX_STEPS=20 VISION_EPOCHS=1
+
+# 中文文本训练（支持参数覆盖）
+# 示例:
+#   make train-chinese
+#   make train-chinese CHINESE_DATA_SOURCE=zhwiki CHINESE_EPOCHS=5
+#   make train-chinese CHINESE_DATA_SOURCE=baidubaike CHINESE_BATCH_SIZE=16
+train-chinese:
+	@echo "开始训练中文文本能力..."
+	@echo "batch_size=$(CHINESE_BATCH_SIZE), epochs=$(CHINESE_EPOCHS), lr=$(CHINESE_LR)"
+	$(PYTHON) train_chinese.py \
+		--batch-size $(CHINESE_BATCH_SIZE) \
+		--epochs $(CHINESE_EPOCHS) \
+		--learning-rate $(CHINESE_LR) \
+		--checkpoint $(CHINESE_CHECKPOINT) \
+		--output $(CHINESE_OUTPUT)
 
 # 推理服务（开发）
 serve-dev:
 	@echo "启动推理API服务(开发模式)..."
 	$(PYTHON) -m uvicorn serve:app --host 0.0.0.0 --port 8000 --reload
+
+# 推理服务（统一模型）
+serve:
+	@echo "启动推理API服务..."
+	@echo "使用统一模型: $(CORE_MODEL_CHECKPOINT)"
+	LLM_CHECKPOINT=$(CORE_MODEL_CHECKPOINT) $(PYTHON) -m uvicorn serve:app --host 0.0.0.0 --port 8000 --reload
 
 # 前端（Next.js）
 frontend-install:

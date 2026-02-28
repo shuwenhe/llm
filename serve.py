@@ -370,7 +370,7 @@ def resolve_device() -> torch.device:
 
 
 def load_model_from_checkpoint() -> tuple[GPT, ModelConfig]:
-    checkpoint_path = os.getenv("LLM_CHECKPOINT", "checkpoints/best_model.pt")
+    checkpoint_path = os.getenv("LLM_CHECKPOINT", "checkpoints/model.pt")
     if not os.path.exists(checkpoint_path):
         raise FileNotFoundError(f"checkpoint不存在: {checkpoint_path}")
 
@@ -430,7 +430,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 def get_cors_origins() -> list[str]:
-    raw = os.getenv("LLM_CORS_ORIGINS", "http://localhost:3000").strip()
+    raw = os.getenv("LLM_CORS_ORIGINS", "http://localhost:3000,http://localhost:3001").strip()
     if not raw:
         return []
     if raw == "*":

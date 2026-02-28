@@ -222,6 +222,7 @@ def train_vision_encoder_real(
     dataset_name="nlphuji/flickr30k",  # HF数据集名称
     batch_size=8,
     num_epochs=10,
+    max_steps=None,
     learning_rate=1e-4,
     checkpoint_path="checkpoints/best_model.pt",
     output_path="checkpoints/vision_trained_model.pt"
@@ -306,9 +307,11 @@ def train_vision_encoder_real(
     model.train()
     global_step = 0
     best_loss = float('inf')
+    stop_early = False
     
     for epoch in range(num_epochs):
         epoch_loss = 0
+        epoch_batches = 0
         pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs}")
         
         for batch_idx, (x, y, image, audio) in enumerate(pbar):
@@ -328,7 +331,11 @@ def train_vision_encoder_real(
                 scheduler.step()
                 
                 epoch_loss += loss.item()
+                epoch_batches += 1
                 global_step += 1
+
+                if max_steps is not None and global_step >= max_steps:
+                    stop_early = True
                 
                 # 更新进度条
                 pbar.set_postfix({
@@ -340,8 +347,11 @@ def train_vision_encoder_real(
             except Exception as e:
                 print(f"\n警告: 批次 {batch_idx} 处理失败: {e}")
                 continue
+
+            if stop_early:
+                break
         
-        avg_epoch_loss = epoch_loss / len(train_loader)
+        avg_epoch_loss = epoch_loss / max(1, epoch_batches)
         print(f"\nEpoch {epoch+1} 完成, 平均损失: {avg_epoch_loss:.4f}")
         
         # 保存最佳模型
@@ -361,6 +371,10 @@ def train_vision_encoder_real(
                 'epoch': epoch,
                 'best_loss': best_loss,
             }, output_path)
+
+        if stop_early:
+            print(f"\n达到 max_steps={max_steps}，提前结束训练。")
+            break
     
     print("\n" + "=" * 60)
     print(f"✓ 训练完成! 最佳损失: {best_loss:.4f}")
@@ -383,9 +397,11 @@ if __name__ == "__main__":
                        help="HuggingFace数据集名称")
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--epochs", type=int, default=10)
+    parser.add_argument("--max-steps", type=int, default=0,
+                       help="最大训练步数，>0 时提前结束（用于快速验证）")
     parser.add_argument("--lr", type=float, default=1e-4)
-    parser.add_argument("--checkpoint", default="checkpoints/best_model.pt")
-    parser.add_argument("--output", default="checkpoints/vision_trained_model.pt")
+    parser.add_argument("--checkpoint", default="checkpoints/model.pt")
+    parser.add_argument("--output", default="checkpoints/model.pt")
     
     args = parser.parse_args()
     
@@ -395,6 +411,7 @@ if __name__ == "__main__":
         dataset_name=args.dataset_name,
         batch_size=args.batch_size,
         num_epochs=args.epochs,
+        max_steps=(args.max_steps if args.max_steps > 0 else None),
         learning_rate=args.lr,
         checkpoint_path=args.checkpoint,
         output_path=args.output

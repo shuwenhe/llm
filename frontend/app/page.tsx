@@ -216,38 +216,49 @@ export default function Home() {
         // 不要设置Content-Type，让浏览器自动设置multipart boundary
       }
 
-      const response = await fetch(usedEndpoint, fetchOptions);
+      console.log("Sending request to:", usedEndpoint);
+      try {
+        const response = await fetch(usedEndpoint, fetchOptions);
+        console.log("Response received:", response.status, response.statusText);
 
-      if (!response.ok) {
-        const detail = await response.text();
-        throw new Error(detail || `Request failed: ${response.status}`);
+        if (!response.ok) {
+          const detail = await response.text();
+          throw new Error(detail || `Request failed: ${response.status}`);
+        }
+
+        const text = await response.text();
+        console.log("Response text:", text.substring(0, 200));
+        const data = JSON.parse(text) as GenerateResponse;
+        console.log("Parsed data:", data);
+        if (data.session_id) {
+          setSessionId(data.session_id);
+        }
+
+        const updatedMessages: ChatMessage[] = [
+          ...nextMessages,
+          { role: "assistant", content: data.text },
+        ];
+        setMessages(updatedMessages);
+        setSelectedFiles([]);
+
+        // Update conversation title from first user message
+        if (nextMessages.length === 1) {
+          const title = prompt.length > 30 ? prompt.substring(0, 30) + "..." : prompt;
+          updateConversationTitle(currentConvId, title);
+        }
+
+        // Save to conversation
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === currentConvId ? { ...c, messages: updatedMessages } : c
+          )
+        );
+      } catch (fetchError) {
+        console.error("Fetch error details:", fetchError);
+        throw fetchError;
       }
-
-      const data = (await response.json()) as GenerateResponse;
-      if (data.session_id) {
-        setSessionId(data.session_id);
-      }
-
-      const updatedMessages: ChatMessage[] = [
-        ...nextMessages,
-        { role: "assistant", content: data.text },
-      ];
-      setMessages(updatedMessages);
-      setSelectedFiles([]);
-
-      // Update conversation title from first user message
-      if (nextMessages.length === 1) {
-        const title = prompt.length > 30 ? prompt.substring(0, 30) + "..." : prompt;
-        updateConversationTitle(currentConvId, title);
-      }
-
-      // Save to conversation
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.id === currentConvId ? { ...c, messages: updatedMessages } : c
-        )
-      );
     } catch (err) {
+      console.error("Request error:", err);
       setError(err instanceof Error ? err.message : "请求失败");
       setMessages(nextMessages);
     } finally {
@@ -491,7 +502,7 @@ export default function Home() {
               </button>
               <button
                 onClick={sendMessage}
-                disabled={loading || !input.trim()}
+                disabled={loading || (!input.trim() && selectedFiles.length === 0)}
                 className="absolute right-2 bottom-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:bg-zinc-300"
               >
                 发送
