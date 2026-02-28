@@ -1,37 +1,57 @@
-.PHONY: help install test train train-multimodal serve serve-dev obs-up obs-down generate quick-generate quick-test-multimodal clean clean-checkpoints clean-all
+.PHONY: help install test train train-multimodal serve serve-dev obs-up obs-down generate quick-generate quick-test-multimodal clean clean-checkpoints clean-all frontend-install frontend-dev frontend-build frontend-start kill-frontend kill-backend dev-all
 
 # Python解释器（优先使用项目内虚拟环境）
 PYTHON := $(shell if [ -x ./venv/bin/python ]; then echo ./venv/bin/python; else echo python3; fi)
 
+# 颜色输出
+GREEN := \033[0;32m
+YELLOW := \033[0;33m
+RED := \033[0;31m
+NC := \033[0m # No Color
+
 # 默认目标
 help:
-	@echo "LLM项目 - 可用命令:"
 	@echo ""
-	@echo "环境设置:"
+	@echo "${GREEN}LLM项目 - 可用命令:${NC}"
+	@echo ""
+	@echo "${YELLOW}环境设置:${NC}"
 	@echo "  make setup            - 创建虚拟环境"
 	@echo "  make setup-all        - 创建虚拟环境并安装依赖(推荐)"
 	@echo "  make install          - 安装依赖(需要先激活虚拟环境)"
 	@echo "  make install-force    - 强制安装(不推荐，跳过虚拟环境检查)"
 	@echo ""
-	@echo "开发与训练:"
+	@echo "${YELLOW}开发与训练:${NC}"
 	@echo "  make test             - 运行模型测试"
 	@echo "  make train            - 开始训练模型"
 	@echo "  make train-multimodal - 开始完整多模态训练(文本+图像+语音)"
 	@echo "  make serve            - 启动推理API服务(生产模式)"
 	@echo "  make serve-dev        - 启动推理API服务(开发热更新)"
+	@echo ""
+	@echo "${YELLOW}前端开发 (Next.js):${NC}"
+	@echo "  make frontend-install - 安装前端依赖"
+	@echo "  make frontend-dev     - 启动前端(开发模式) - ${RED}Ctrl+C可正确关闭${NC}"
+	@echo "  make frontend-build   - 构建前端(生产构建)"
+	@echo "  make frontend-start   - 启动前端(生产模式)"
+	@echo ""
+	@echo "${YELLOW}前端/后端合并操作:${NC}"
+	@echo "  make dev-all          - 同时启动后端+前端(开发模式,需要2个终端)"
+	@echo "  make kill-frontend    - 关闭前端(端口3000)"
+	@echo "  make kill-backend     - 关闭后端(端口8000)"
+	@echo ""
+	@echo "${YELLOW}可观测性:${NC}"
 	@echo "  make obs-up           - 启动可观测性栈(LLM+Prometheus+Grafana)"
 	@echo "  make obs-down         - 停止可观测性栈"
+	@echo ""
+	@echo "${YELLOW}工具与测试:${NC}"
 	@echo "  make generate         - 运行交互式文本生成"
 	@echo "  make quick-generate   - 批量测试生成参数"
 	@echo "  make quick-test       - 快速测试(验证模型可用)"
 	@echo "  make quick-test-multimodal - 快速测试多模态前向(文本+图像+语音)"
-	@echo ""
-	@echo "工具:"
 	@echo "  make info             - 查看模型配置信息"
 	@echo "  make check-deps       - 检查依赖安装情况"
 	@echo "  make init             - 创建必要的项目目录"
 	@echo ""
-	@echo "清理:"
+	@echo "${YELLOW}清理:${NC}"
 	@echo "  make clean            - 清理Python缓存文件"
 	@echo "  make clean-checkpoints - 删除所有checkpoint文件"
 	@echo "  make clean-all        - 清理所有生成文件"
@@ -55,20 +75,20 @@ install: check-venv
 	@echo "安装项目依赖..."
 	$(PYTHON) -m pip install --upgrade pip
 	$(PYTHON) -m pip install -r requirements.txt
-	@echo "✓ 依赖安装完成"
+	@echo "${GREEN}✓ 依赖安装完成${NC}"
 
 # 强制安装（不检查虚拟环境，不推荐）
 install-force:
-	@echo "⚠️  强制安装依赖（不推荐，可能影响系统Python）..."
+	@echo "${YELLOW}⚠️  强制安装依赖（不推荐，可能影响系统Python）...${NC}"
 	$(PYTHON) -m pip install --upgrade pip --break-system-packages
 	$(PYTHON) -m pip install -r requirements.txt --break-system-packages
-	@echo "✓ 依赖安装完成"
+	@echo "${GREEN}✓ 依赖安装完成${NC}"
 
 # 创建虚拟环境并安装依赖
 setup:
 	@echo "创建虚拟环境..."
 	$(PYTHON) -m venv venv
-	@echo "✓ 虚拟环境创建完成: venv/"
+	@echo "${GREEN}✓ 虚拟环境创建完成: venv/${NC}"
 	@echo ""
 	@echo "激活虚拟环境："
 	@echo "  Linux/Mac: source venv/bin/activate"
@@ -87,7 +107,7 @@ setup-all:
 	@./venv/bin/pip install --upgrade pip
 	@./venv/bin/pip install -r requirements.txt
 	@echo ""
-	@echo "✓ 设置完成！"
+	@echo "${GREEN}✓ 设置完成！${NC}"
 	@echo ""
 	@echo "激活虚拟环境："
 	@echo "  source venv/bin/activate"
@@ -121,14 +141,74 @@ serve-dev:
 	@echo "启动推理API服务(开发模式)..."
 	$(PYTHON) -m uvicorn serve:app --host 0.0.0.0 --port 8000 --reload
 
+# 前端（Next.js）
+frontend-install:
+	@echo "安装前端依赖..."
+	cd frontend && npm install
+	@echo "${GREEN}✓ 前端依赖安装完成${NC}"
+
+frontend-dev:
+	@echo "启动前端(开发模式 - 端口3000)..."
+	@echo "提示: 按 Ctrl+C 可以正确关闭服务"
+	@cd frontend && npm run dev
+
+frontend-build:
+	@echo "构建前端(生产构建)..."
+	cd frontend && npm run build
+	@echo "${GREEN}✓ 前端构建完成${NC}"
+
+frontend-start:
+	@echo "启动前端(生产模式 - 端口3000)..."
+	cd frontend && npm run start
+
 # 可观测性栈（服务 + Prometheus + Grafana）
 obs-up:
 	@echo "启动可观测性栈..."
 	docker compose -f docker-compose.observability.yml up -d --build
+	@echo "${GREEN}✓ 可观测性栈启动完成${NC}"
 
 obs-down:
 	@echo "停止可观测性栈..."
 	docker compose -f docker-compose.observability.yml down
+	@echo "${GREEN}✓ 可观测性栈已停止${NC}"
+
+# 杀死前端进程
+kill-frontend:
+	@echo "关闭前端 (端口3000)..."
+	@if lsof -Pi :3000 -sTCP:LISTEN -t >/dev/null 2>&1; then \
+		kill -9 $$(lsof -t -i :3000) 2>/dev/null || pkill -9 -f "next dev" 2>/dev/null || true; \
+		echo "${GREEN}✓ 前端进程已关闭${NC}"; \
+	else \
+		echo "○ 前端未运行"; \
+	fi
+
+# 杀死后端进程
+kill-backend:
+	@echo "关闭后端 (端口8000)..."
+	@if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null 2>&1; then \
+		kill -9 $$(lsof -t -i :8000) 2>/dev/null || pkill -9 -f "uvicorn" 2>/dev/null || true; \
+		echo "${GREEN}✓ 后端进程已关闭${NC}"; \
+	else \
+		echo "○ 后端未运行"; \
+	fi
+
+# 同时启动前后端（用于开发，需要在2个终端中分别运行）
+dev-all:
+	@echo "${YELLOW}开发模式 - 启动后端+前端${NC}"
+	@echo ""
+	@echo "需要在2个终端中分别运行:"
+	@echo ""
+	@echo "  ${GREEN}终端1 (后端):${NC}  make serve-dev"
+	@echo "  ${GREEN}终端2 (前端):${NC}  make frontend-dev"
+	@echo ""
+	@echo "或者如果要在后台运行："
+	@echo "  make serve-dev &"
+	@echo "  make frontend-dev"
+	@echo ""
+	@echo "停止服务时使用:"
+	@echo "  make kill-backend"
+	@echo "  make kill-frontend"
+	@echo ""
 
 # 文本生成
 generate:
@@ -170,13 +250,13 @@ clean:
 	find . -type f -name "*.pyc" -delete 2>/dev/null || true
 	find . -type f -name "*.pyo" -delete 2>/dev/null || true
 	find . -type f -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
-	@echo "✓ 缓存清理完成"
+	@echo "${GREEN}✓ 缓存清理完成${NC}"
 
 # 清理checkpoint文件
 clean-checkpoints:
 	@echo "删除checkpoint文件..."
 	rm -rf checkpoints/*.pt
-	@echo "✓ Checkpoint清理完成"
+	@echo "${GREEN}✓ Checkpoint清理完成${NC}"
 
 # 清理所有生成文件
 clean-all: clean clean-checkpoints
@@ -185,7 +265,7 @@ clean-all: clean clean-checkpoints
 	rm -rf wandb/
 	rm -rf runs/
 	rm -rf data/
-	@echo "✓ 完全清理完成"
+	@echo "${GREEN}✓ 完全清理完成${NC}"
 
 # 查看模型信息
 info:

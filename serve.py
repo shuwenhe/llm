@@ -15,6 +15,7 @@ from uuid import uuid4
 import jwt
 import torch
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
 from pydantic import BaseModel, Field
@@ -354,6 +355,26 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="LLM Service", version="1.0.0", lifespan=lifespan)
 
 
+def get_cors_origins() -> list[str]:
+    raw = os.getenv("LLM_CORS_ORIGINS", "http://localhost:3000").strip()
+    if not raw:
+        return []
+    if raw == "*":
+        return ["*"]
+    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+
+cors_origins = get_cors_origins()
+if cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins,
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+
 @app.middleware("http")
 async def request_log_and_metrics(request: Request, call_next):
     request_id = str(uuid4())
@@ -366,6 +387,10 @@ async def request_log_and_metrics(request: Request, call_next):
         status = response.status_code
     except Exception:
         status = 500
+        logger.exception("http_request_failed", extra={
+            "path": path,
+            "method": method,
+        })
         REQUEST_COUNT.labels(method=method, path=path, status=str(status)).inc()
         REQUEST_LATENCY.labels(method=method, path=path).observe(time.perf_counter() - start)
         raise
@@ -505,6 +530,10 @@ def generate(req: GenerateRequest, request: Request, identity: str = Depends(opt
             elif text.startswith(req.prompt):
                 text = text[len(req.prompt):].strip()
     except Exception as e:
+        logger.exception("generation_failed", extra={
+            "session_id": session_id,
+            "identity": identity,
+        })
         GENERATE_COUNT.labels(status="error").inc()
         raise HTTPException(status_code=500, detail=f"generation failed: {e}") from e
 

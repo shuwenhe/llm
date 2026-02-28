@@ -34,8 +34,6 @@ export default function Home() {
   const [showSettings, setShowSettings] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
-  const [copiedSystemPrompt, setCopiedSystemPrompt] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   const [maxNewTokens, setMaxNewTokens] = useState(180);
   const [temperature, setTemperature] = useState(0.8);
@@ -47,7 +45,6 @@ export default function Home() {
   const [systemPrompt, setSystemPrompt] = useState("请用中文回答");
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const initialized = useRef(false);
 
   const apiBase = useMemo(() => {
@@ -117,39 +114,6 @@ export default function Home() {
     });
   };
 
-  const copySystemPromptToClipboard = () => {
-    navigator.clipboard.writeText(systemPrompt).then(() => {
-      setCopiedSystemPrompt(true);
-      setTimeout(() => setCopiedSystemPrompt(false), 2000);
-    });
-  };
-
-  const openFilePicker = () => {
-    fileInputRef.current?.click();
-  };
-
-  const onFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-    setSelectedFiles((prev) => [...prev, ...files]);
-    e.target.value = "";
-  };
-
-  const handlePasteImage = (e: React.ClipboardEvent<HTMLInputElement>) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].kind === "file" && items[i].type.startsWith("image/")) {
-        e.preventDefault();
-        const file = items[i].getAsFile();
-        if (file) {
-          setSelectedFiles((prev) => [...prev, file]);
-        }
-      }
-    }
-  };
-
   const sendMessage = async () => {
     const prompt = input.trim();
     if (!prompt || loading || !currentConvId) return;
@@ -158,7 +122,6 @@ export default function Home() {
     setLoading(true);
     setInput("");
 
-    const finalPrompt = systemPrompt ? `${systemPrompt}\n${prompt}` : prompt;
     const nextMessages: ChatMessage[] = [...messages, { role: "user", content: prompt }];
     setMessages(nextMessages);
 
@@ -169,7 +132,7 @@ export default function Home() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          prompt: finalPrompt,
+          prompt,
           max_new_tokens: maxNewTokens,
           temperature,
           top_k: topK,
@@ -190,20 +153,16 @@ export default function Home() {
       if (data.session_id) {
         setSessionId(data.session_id);
       }
-
-      const updatedMessages: ChatMessage[] = [
-        ...nextMessages,
-        { role: "assistant", content: data.text },
-      ];
+      
+      const updatedMessages = [...nextMessages, { role: "assistant", content: data.text }];
       setMessages(updatedMessages);
-      setSelectedFiles([]);
-
+      
       // Update conversation title from first user message
       if (nextMessages.length === 1) {
         const title = prompt.length > 30 ? prompt.substring(0, 30) + "..." : prompt;
         updateConversationTitle(currentConvId, title);
       }
-
+      
       // Save to conversation
       setConversations((prev) =>
         prev.map((c) =>
@@ -219,7 +178,20 @@ export default function Home() {
   };
 
   if (!currentConvId) {
-    return null;
+    return (
+      <div className="flex h-screen items-center justify-center bg-white">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold">LLM Chat</h1>
+          <p className="mt-2 text-zinc-500">开始新的对话</p>
+          <button
+            onClick={createNewConversation}
+            className="mt-6 rounded-lg bg-zinc-900 px-6 py-2 text-white hover:bg-zinc-800"
+          >
+            新建对话
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -298,8 +270,7 @@ export default function Home() {
         </div>
 
         {/* 消息区域 */}
-        <div className="flex-1 overflow-y-auto px-6 py-8">
-          <div className="mx-auto max-w-4xl space-y-6">
+        <div className="flex-1 overflow-y-auto px-6 py-8 space-y-6">
           {messages.length === 0 ? (
             <div className="flex h-full items-center justify-center text-center">
               <div>
@@ -311,12 +282,12 @@ export default function Home() {
             messages.map((msg, idx) => (
               <div
                 key={`${msg.role}-${idx}`}
-                className={`flex w-full gap-2 group ${msg.role === "assistant" ? "justify-start" : "justify-end"}`}
+                className={`flex gap-2 group ${msg.role === "user" ? "justify-end" : "justify-center"}`}
               >
                 {msg.role === "assistant" && (
                   <button
                     onClick={() => copyToClipboard(msg.content, idx)}
-                    className="self-start mt-2 p-2 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-zinc-200 flex-shrink-0"
+                    className="self-start mt-2 p-2 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-zinc-200"
                     title="复制"
                   >
                     {copiedIdx === idx ? (
@@ -328,37 +299,20 @@ export default function Home() {
                     )}
                   </button>
                 )}
-                <div className={`relative group/msg ${msg.role === "assistant" ? "flex-1" : "max-w-xl"}`}>
-                  <div
-                    className={`rounded-2xl px-6 py-4 whitespace-pre-wrap leading-7 ${
-                      msg.role === "assistant"
-                        ? "bg-zinc-100 text-zinc-900"
-                        : "bg-zinc-900 text-white"
-                    }`}
-                  >
-                    {msg.content}
-                  </div>
-                  {msg.role === "user" && (
-                    <button
-                      onClick={() => copyToClipboard(msg.content, idx)}
-                      className="absolute -right-10 top-1/2 -translate-y-1/2 p-2 rounded opacity-0 group-hover/msg:opacity-100 transition-opacity hover:bg-zinc-800"
-                      title="复制"
-                    >
-                      {copiedIdx === idx ? (
-                        <span className="text-xs text-green-600">✓ 已复制</span>
-                      ) : (
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                      )}
-                    </button>
-                  )}
+                <div
+                  className={`max-w-2xl ${
+                    msg.role === "user"
+                      ? "bg-zinc-900 text-white"
+                      : "bg-zinc-100 text-zinc-900"
+                  } rounded-2xl px-6 py-4 whitespace-pre-wrap leading-7 text-center`}
+                >
+                  {msg.content}
                 </div>
               </div>
             ))
           )}
           {loading && (
-            <div className="flex w-full justify-start">
+            <div className="flex justify-center">
               <div className="bg-zinc-100 text-zinc-900 rounded-2xl px-6 py-4 flex items-center gap-2">
                 <div className="w-2 h-2 bg-zinc-400 rounded-full animate-bounce"></div>
                 <div className="w-2 h-2 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
@@ -367,7 +321,6 @@ export default function Home() {
             </div>
           )}
           <div ref={messagesEndRef} />
-          </div>
         </div>
 
         {/* 错误提示 */}
@@ -381,36 +334,6 @@ export default function Home() {
         <div className="border-t border-zinc-200 px-6 py-6">
           <div className="mx-auto max-w-4xl">
             <div className="relative">
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept="image/*,audio/*,.pdf,.txt,.md,.json,.csv,.doc,.docx"
-                className="hidden"
-                onChange={onFilesSelected}
-              />
-
-              {selectedFiles.length > 0 && (
-                <div className="mb-2 flex flex-wrap gap-2 rounded-xl border border-zinc-200 bg-zinc-50 p-2">
-                  {selectedFiles.map((file, index) => (
-                    <div
-                      key={`${file.name}-${index}`}
-                      className="inline-flex items-center gap-2 rounded-full bg-white border border-zinc-200 px-3 py-1 text-xs text-zinc-700"
-                    >
-                      <span className="max-w-[180px] truncate" title={file.name}>{file.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => removeSelectedFile(index)}
-                        className="text-zinc-500 hover:text-red-500"
-                        title="移除附件"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
               <textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -421,17 +344,9 @@ export default function Home() {
                   }
                 }}
                 placeholder="输入提示词... (Shift+Enter 换行)"
-                className="w-full rounded-2xl border border-zinc-300 pl-14 pr-24 py-4 text-base outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 resize-none"
+                className="w-full rounded-2xl border border-zinc-300 px-6 py-4 text-base outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 resize-none"
                 rows={2}
               />
-              <button
-                type="button"
-                onClick={openFilePicker}
-                className="absolute left-3 bottom-3 flex h-9 w-9 items-center justify-center rounded-full border border-zinc-300 bg-white text-2xl leading-none text-zinc-700 hover:bg-zinc-50"
-                title="添加图片/文件/音频"
-              >
-                +
-              </button>
               <button
                 onClick={sendMessage}
                 disabled={loading || !input.trim()}
@@ -450,36 +365,6 @@ export default function Home() {
           <div>
             <h2 className="text-lg font-semibold text-zinc-900 mb-4">参数设置</h2>
             <div className="space-y-4">
-              {/* 系统提示词 */}
-              <div className="border-b border-zinc-300 pb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-xs font-medium text-zinc-700">
-                    系统提示词
-                  </label>
-                  <button
-                    onClick={copySystemPromptToClipboard}
-                    className="p-1 rounded hover:bg-zinc-200 transition-colors"
-                    title="复制提示词"
-                  >
-                    {copiedSystemPrompt ? (
-                      <span className="text-xs text-green-600">✓</span>
-                    ) : (
-                      <svg className="w-3 h-3 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-                <input
-                  type="text"
-                  value={systemPrompt}
-                  onChange={(e) => setSystemPrompt(e.target.value)}
-                  onPaste={handlePasteImage}
-                  className="w-full px-3 py-2 text-sm border border-zinc-700 rounded-lg outline-none focus:border-zinc-600 focus:ring-2 focus:ring-zinc-800 bg-zinc-900 text-white placeholder-zinc-400"
-                  placeholder="输入系统提示词..."
-                />
-              </div>
-
               <div>
                 <label className="block text-xs font-medium text-zinc-700 mb-2">
                   max_new_tokens: {maxNewTokens}
