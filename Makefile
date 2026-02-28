@@ -1,4 +1,4 @@
-.PHONY: help install test train train-basic train-multimodal train-vision train-vision-quick train-chinese serve serve-dev obs-up obs-down generate quick-generate quick-test-multimodal demo gateway inference-generate inference-quick deploy-local-up deploy-local-down clean clean-checkpoints clean-all frontend-install frontend-dev frontend-build frontend-start kill-frontend kill-backend dev-all
+.PHONY: help install test step1 step2 step3 bootstrap-check train train-basic train-multimodal train-vision train-vision-quick train-chinese serve serve-dev obs-up obs-down generate quick-generate quick-test-multimodal demo gateway inference-generate inference-quick deploy-local-up deploy-local-down clean clean-checkpoints clean-all frontend-install frontend-dev frontend-build frontend-start kill-frontend kill-backend dev-all
 
 # Python解释器（优先使用项目内虚拟环境）
 PYTHON := $(shell if [ -x ./venv/bin/python ]; then echo ./venv/bin/python; else echo python3; fi)
@@ -47,6 +47,10 @@ help:
 	@echo ""
 	@echo "${YELLOW}开发与训练:${NC}"
 	@echo "  make test             - 运行模型测试"
+	@echo "  make step1            - 第一步: 仅验证模型前向传播"
+	@echo "  make step2            - 第二步: 验证单步反向传播"
+	@echo "  make step3            - 第三步: 迷你训练10步验证"
+	@echo "  make bootstrap-check  - 一次跑完 step1/step2/step3"
 	@echo "  make train            - 开始训练模型(默认:中文文本)"
 	@echo "  make train-chinese    - 训练中文文本能力"
 	@echo "  make train-vision     - 训练视觉编码器"
@@ -155,6 +159,29 @@ setup-all:
 test:
 	@echo "运行模型测试..."
 	$(PYTHON) test/test_model.py
+
+# 第一步：模型前向传播最小验证
+step1:
+	@echo "第一步：验证模型前向传播..."
+	$(PYTHON) test/step1_forward.py
+
+# 第二步：单步反向传播最小验证
+step2:
+	@echo "第二步：验证单步反向传播..."
+	$(PYTHON) test/step2_backward.py
+
+# 第三步：迷你训练10步验证
+step3:
+	@echo "第三步：迷你训练10步验证..."
+	$(PYTHON) test/step3_mini_train.py
+
+# 串行执行 Step1/Step2/Step3 启动验证
+bootstrap-check:
+	@echo "启动引导检查: step1 -> step2 -> step3"
+	$(MAKE) step1
+	$(MAKE) step2
+	$(MAKE) step3
+	@echo "✓ bootstrap-check 全部通过"
 
 # 训练模型（默认：中文文本训练）
 train:
