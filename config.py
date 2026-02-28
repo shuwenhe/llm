@@ -12,6 +12,19 @@ class ModelConfig:
     block_size = 512  # 最大序列长度
     dropout = 0.1
     bias = True  # 是否在Linear和LayerNorm中使用bias
+
+    # 多模态（可选）
+    multimodal_enabled = False
+    modality_dropout = 0.0
+
+    # 视觉编码器配置
+    vision_input_channels = 3
+    vision_patch_size = 16
+
+    # 语音编码器配置（输入通常是mel特征）
+    audio_input_dim = 80
+    audio_kernel_size = 3
+    audio_stride = 2
     
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
@@ -24,6 +37,11 @@ class TrainConfig:
     dataset_name = "wikitext"  # 或使用自己的数据
     dataset_config = "wikitext-2-raw-v1"
     clean_data = False  # 是否清洗WikiText格式标记（暂时禁用以快速收敛）
+    train_multimodal = False  # 是否启用完整多模态训练（文本+图像+语音）
+    multimodal_image_size = 64
+    multimodal_audio_len = 50
+    multimodal_batch_size = 4
+    multimodal_block_size = 256
     
     # 训练参数
     batch_size = 16

@@ -1,10 +1,29 @@
 """数据加载和处理"""
+import os
 import re
 import torch
 from torch.utils.data import Dataset, DataLoader
 from datasets import load_dataset
 from transformers import GPT2TokenizerFast
 import numpy as np
+
+
+def normalize_proxy_env():
+    """规范化代理环境变量，避免 httpx 因 `socks://` 直接报错。"""
+    proxy_vars = [
+        "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY",
+        "http_proxy", "https_proxy", "all_proxy"
+    ]
+
+    for key in proxy_vars:
+        value = os.environ.get(key)
+        if not value:
+            continue
+
+        # httpx 不识别 socks://，需改为 socks5://
+        if value.startswith("socks://"):
+            os.environ[key] = "socks5://" + value[len("socks://"):]
+            print(f"检测到代理 {key}=socks://...，已自动转换为 socks5://")
 
 
 def clean_wikitext(text):
@@ -59,13 +78,48 @@ class TextDataset(Dataset):
         return x, y
 
 
+class MultiModalTextDataset(Dataset):
+    """多模态数据集：基于文本样本附加图像/语音特征（默认合成）"""
+    def __init__(self, text_dataset, image_size=64, audio_len=50, audio_dim=80, seed=42):
+        self.text_dataset = text_dataset
+        self.image_size = image_size
+        self.audio_len = audio_len
+        self.audio_dim = audio_dim
+        self.seed = seed
+
+    def __len__(self):
+        return len(self.text_dataset)
+
+    def __getitem__(self, idx):
+        x, y = self.text_dataset[idx]
+
+        # 使用可复现随机特征模拟图像/语音输入（用于完整多模态训练链路）
+        gen = torch.Generator()
+        gen.manual_seed(self.seed + idx)
+
+        image = torch.randn(3, self.image_size, self.image_size, generator=gen, dtype=torch.float32)
+        audio = torch.randn(self.audio_len, self.audio_dim, generator=gen, dtype=torch.float32)
+
+        return x, y, image, audio
+
+
 def load_tokenizer():
     """加载分词器"""
+    normalize_proxy_env()
     tokenizer = GPT2TokenizerFast.from_pretrained('gpt2')
     return tokenizer
 
 
-def prepare_data(dataset_name="wikitext", dataset_config="wikitext-2-raw-v1", block_size=512, clean_data=True):
+def prepare_data(
+    dataset_name="wikitext",
+    dataset_config="wikitext-2-raw-v1",
+    block_size=512,
+    clean_data=True,
+    multimodal=False,
+    multimodal_image_size=64,
+    multimodal_audio_len=50,
+    audio_input_dim=80,
+):
     """
     准备训练数据
     
@@ -78,6 +132,7 @@ def prepare_data(dataset_name="wikitext", dataset_config="wikitext-2-raw-v1", bl
     返回: train_dataset, val_dataset, tokenizer
     """
     print(f"加载数据集: {dataset_name}/{dataset_config}")
+    normalize_proxy_env()
     
     # 加载数据
     dataset = load_dataset(dataset_name, dataset_config)
@@ -129,6 +184,22 @@ def prepare_data(dataset_name="wikitext", dataset_config="wikitext-2-raw-v1", bl
     # 创建数据集
     train_dataset = TextDataset(train_tokens, block_size)
     val_dataset = TextDataset(val_tokens, block_size)
+
+    if multimodal:
+        print("启用多模态训练数据（文本+图像+语音）...")
+        train_dataset = MultiModalTextDataset(
+            train_dataset,
+            image_size=multimodal_image_size,
+            audio_len=multimodal_audio_len,
+            audio_dim=audio_input_dim
+        )
+        val_dataset = MultiModalTextDataset(
+            val_dataset,
+            image_size=multimodal_image_size,
+            audio_len=multimodal_audio_len,
+            audio_dim=audio_input_dim,
+            seed=4242
+        )
     
     return train_dataset, val_dataset, tokenizer
 
@@ -146,13 +217,15 @@ def create_dataloader(dataset, batch_size, shuffle=True):
 
 if __name__ == "__main__":
     # 测试数据加载
-    train_dataset, val_dataset, tokenizer = prepare_data()
+    train_dataset, val_dataset, tokenizer = prepare_data(multimodal=True)
     train_loader = create_dataloader(train_dataset, batch_size=8)
     
     # 打印一个batch
-    x, y = next(iter(train_loader))
+    x, y, image, audio = next(iter(train_loader))
     print(f"\nBatch形状:")
     print(f"输入 x: {x.shape}")
     print(f"目标 y: {y.shape}")
+    print(f"图像 image: {image.shape}")
+    print(f"语音 audio: {audio.shape}")
     print(f"\n解码第一个样本:")
     print(tokenizer.decode(x[0].tolist()))

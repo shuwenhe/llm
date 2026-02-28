@@ -96,6 +96,44 @@ class Block(nn.Module):
         return x
 
 
+class VisualEncoder(nn.Module):
+    """轻量视觉编码器：将图像转换为token序列"""
+    def __init__(self, config):
+        super().__init__()
+        patch = getattr(config, 'vision_patch_size', 16)
+        in_ch = getattr(config, 'vision_input_channels', 3)
+        self.proj = nn.Conv2d(in_ch, config.n_embd, kernel_size=patch, stride=patch)
+        self.norm = LayerNorm(config.n_embd, bias=config.bias)
+
+    def forward(self, image):
+        # image: (B, C, H, W)
+        x = self.proj(image)  # (B, n_embd, H/patch, W/patch)
+        x = x.flatten(2).transpose(1, 2).contiguous()  # (B, T_img, n_embd)
+        x = self.norm(x)
+        return x
+
+
+class AudioEncoder(nn.Module):
+    """轻量语音编码器：将声学特征序列转换为token序列"""
+    def __init__(self, config):
+        super().__init__()
+        in_dim = getattr(config, 'audio_input_dim', 80)
+        kernel = getattr(config, 'audio_kernel_size', 3)
+        stride = getattr(config, 'audio_stride', 2)
+        padding = kernel // 2
+
+        self.proj = nn.Conv1d(in_dim, config.n_embd, kernel_size=kernel, stride=stride, padding=padding)
+        self.norm = LayerNorm(config.n_embd, bias=config.bias)
+
+    def forward(self, audio):
+        # audio: (B, T_audio, F)
+        x = audio.transpose(1, 2).contiguous()  # (B, F, T_audio)
+        x = self.proj(x)  # (B, n_embd, T')
+        x = x.transpose(1, 2).contiguous()  # (B, T', n_embd)
+        x = self.norm(x)
+        return x
+
+
 class GPT(nn.Module):
     """GPT语言模型"""
     def __init__(self, config):
@@ -110,6 +148,14 @@ class GPT(nn.Module):
             ln_f = LayerNorm(config.n_embd, bias=config.bias),
         ))
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
+
+        self.multimodal_enabled = getattr(config, 'multimodal_enabled', False)
+        self.modality_dropout = nn.Dropout(getattr(config, 'modality_dropout', 0.0))
+
+        # 仅在启用多模态时创建参数，保证旧checkpoint兼容
+        if self.multimodal_enabled:
+            self.visual_encoder = VisualEncoder(config)
+            self.audio_encoder = AudioEncoder(config)
         
         # 权重共享：embedding和输出层共享权重
         self.transformer.wte.weight = self.lm_head.weight
@@ -129,18 +175,64 @@ class GPT(nn.Module):
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
-    def forward(self, idx, targets=None):
+    def _encode_modalities(self, image=None, audio=None):
+        """编码视觉/语音输入并返回模态token序列"""
+        if (image is not None or audio is not None) and not self.multimodal_enabled:
+            raise ValueError("当前模型未启用多模态，请将 config.multimodal_enabled 设为 True")
+
+        modality_tokens = []
+        if self.multimodal_enabled and image is not None:
+            modality_tokens.append(self.visual_encoder(image))
+        if self.multimodal_enabled and audio is not None:
+            modality_tokens.append(self.audio_encoder(audio))
+
+        if not modality_tokens:
+            return None
+
+        fused = torch.cat(modality_tokens, dim=1)
+        return self.modality_dropout(fused)
+
+    def forward(self, idx, targets=None, image=None, audio=None):
         device = idx.device
         b, t = idx.size()
-        assert t <= self.config.block_size, f"序列长度{t}超过最大长度{self.config.block_size}"
-        
-        # 位置编码
-        pos = torch.arange(0, t, dtype=torch.long, device=device)
-        
-        # 前向传播
+
+        # 文本token嵌入
         tok_emb = self.transformer.wte(idx)  # (b, t, n_embd)
-        pos_emb = self.transformer.wpe(pos)  # (t, n_embd)
-        x = self.transformer.drop(tok_emb + pos_emb)
+
+        # 编码模态token并与文本融合（前缀拼接）
+        modal_emb = self._encode_modalities(image=image, audio=audio)
+        if modal_emb is not None:
+            prefix_len = modal_emb.size(1)
+            if prefix_len >= self.config.block_size:
+                # 至少保留1个文本token位置
+                prefix_len = self.config.block_size - 1
+                modal_emb = modal_emb[:, :prefix_len, :]
+
+            max_text_len = self.config.block_size - prefix_len
+            if tok_emb.size(1) > max_text_len:
+                tok_emb = tok_emb[:, -max_text_len:, :]
+                if targets is not None:
+                    targets = targets[:, -max_text_len:]
+
+            x_tokens = torch.cat([modal_emb, tok_emb], dim=1)
+        else:
+            x_tokens = tok_emb
+            prefix_len = 0
+
+            if x_tokens.size(1) > self.config.block_size:
+                x_tokens = x_tokens[:, -self.config.block_size:, :]
+                if targets is not None:
+                    targets = targets[:, -self.config.block_size:]
+
+        total_len = x_tokens.size(1)
+        assert total_len <= self.config.block_size, f"序列长度{total_len}超过最大长度{self.config.block_size}"
+
+        # 位置编码
+        pos = torch.arange(0, total_len, dtype=torch.long, device=device)
+        pos_emb = self.transformer.wpe(pos)  # (total_len, n_embd)
+
+        # 前向传播
+        x = self.transformer.drop(x_tokens + pos_emb)
         
         for block in self.transformer.h:
             x = block(x)
@@ -149,7 +241,9 @@ class GPT(nn.Module):
         if targets is not None:
             # 训练模式：计算损失
             logits = self.lm_head(x)
-            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
+            if prefix_len > 0:
+                logits = logits[:, prefix_len:, :]
+            loss = F.cross_entropy(logits.reshape(-1, logits.size(-1)), targets.reshape(-1), ignore_index=-1)
         else:
             # 推理模式：只计算最后一个token
             logits = self.lm_head(x[:, [-1], :])
@@ -162,7 +256,8 @@ class GPT(nn.Module):
         return sum(p.numel() for p in self.parameters())
 
     @torch.no_grad()
-    def generate(self, idx, max_new_tokens, temperature=1.0, top_k=None, top_p=None, repetition_penalty=1.0):
+    def generate(self, idx, max_new_tokens, temperature=1.0, top_k=None, top_p=None, repetition_penalty=1.0,
+                 image=None, audio=None):
         """
         生成文本
         idx: (b, t) 当前上下文的token索引
@@ -172,7 +267,7 @@ class GPT(nn.Module):
             # 截断到block_size
             idx_cond = idx if idx.size(1) <= self.config.block_size else idx[:, -self.config.block_size:]
             # 前向传播
-            logits, _ = self(idx_cond)
+            logits, _ = self(idx_cond, image=image, audio=audio)
             # 只取最后一个时间步
             logits = logits[:, -1, :] / temperature
             # 重复惩罚（降低已出现token再次被采样的概率）

@@ -59,6 +59,12 @@ make test
 # 训练模型
 make train
 
+# 完整多模态训练
+make train-multimodal
+
+# 启动工业化推理API
+make serve
+
 # 生成文本
 make generate
 ```
@@ -122,8 +128,27 @@ python generate.py
 | **开发与训练** | |
 | `make test` | 运行模型测试 |
 | `make train` | 开始训练模型 |
+| `make train-multimodal` | 开始完整多模态训练（文本+图像+语音） |
+| `make serve` | 启动推理API服务（生产模式） |
+| `make serve-dev` | 启动推理API服务（开发模式） |
 | `make generate` | 运行文本生成 |
 | `make quick-test` | 快速测试（验证模型可用） |
+
+## 🏭 工业化接口
+
+服务启动后提供标准健康检查与推理端点：
+
+- `GET /healthz`：进程健康检查
+- `GET /readyz`：模型就绪检查
+- `POST /v1/generate`：文本生成接口
+
+示例请求：
+
+```bash
+curl -X POST http://127.0.0.1:8000/v1/generate \
+    -H "Content-Type: application/json" \
+    -d '{"prompt":"Hello","max_new_tokens":64}'
+```
 | **工具** | |
 | `make info` | 查看模型配置信息 |
 | `make check-deps` | 检查依赖安装情况 |

@@ -1,7 +1,7 @@
-.PHONY: help install test train generate quick-generate clean clean-checkpoints clean-all
+.PHONY: help install test train train-multimodal serve serve-dev generate quick-generate quick-test-multimodal clean clean-checkpoints clean-all
 
-# Python解释器
-PYTHON := python3
+# Python解释器（优先使用项目内虚拟环境）
+PYTHON := $(shell if [ -x ./venv/bin/python ]; then echo ./venv/bin/python; else echo python3; fi)
 
 # 默认目标
 help:
@@ -16,9 +16,13 @@ help:
 	@echo "开发与训练:"
 	@echo "  make test             - 运行模型测试"
 	@echo "  make train            - 开始训练模型"
+	@echo "  make train-multimodal - 开始完整多模态训练(文本+图像+语音)"
+	@echo "  make serve            - 启动推理API服务(生产模式)"
+	@echo "  make serve-dev        - 启动推理API服务(开发热更新)"
 	@echo "  make generate         - 运行交互式文本生成"
 	@echo "  make quick-generate   - 批量测试生成参数"
 	@echo "  make quick-test       - 快速测试(验证模型可用)"
+	@echo "  make quick-test-multimodal - 快速测试多模态前向(文本+图像+语音)"
 	@echo ""
 	@echo "工具:"
 	@echo "  make info             - 查看模型配置信息"
@@ -100,6 +104,21 @@ train:
 	@echo "开始训练模型..."
 	$(PYTHON) train.py
 
+# 多模态训练
+train-multimodal:
+	@echo "开始多模态训练模型..."
+	LLM_MULTIMODAL=1 $(PYTHON) train.py
+
+# 推理服务（生产）
+serve:
+	@echo "启动推理API服务(生产模式)..."
+	$(PYTHON) -m uvicorn serve:app --host 0.0.0.0 --port 8000
+
+# 推理服务（开发）
+serve-dev:
+	@echo "启动推理API服务(开发模式)..."
+	$(PYTHON) -m uvicorn serve:app --host 0.0.0.0 --port 8000 --reload
+
 # 文本生成
 generate:
 	@echo "启动文本生成..."
@@ -118,6 +137,20 @@ quick-test:
 		model = GPT(config); \
 		print(f'模型参数: {model.get_num_params()/1e6:.2f}M'); \
 		print('✓ 模型创建成功')"
+
+# 多模态快速测试（随机输入）
+quick-test-multimodal:
+	@echo "多模态快速测试模式..."
+	$(PYTHON) -c "import torch; from model import GPT; from config import ModelConfig; \
+		config = ModelConfig(multimodal_enabled=True, n_layer=2, n_head=2, n_embd=128, block_size=256); \
+		model = GPT(config); \
+		idx = torch.randint(0, config.vocab_size, (2, 32)); \
+		img = torch.randn(2, 3, 64, 64); \
+		aud = torch.randn(2, 50, config.audio_input_dim); \
+		logits, loss = model(idx, idx, image=img, audio=aud); \
+		print(f'logits形状: {tuple(logits.shape)}'); \
+		print(f'loss: {loss.detach().item():.4f}'); \
+		print('✓ 多模态前向测试成功')"
 
 # 清理Python缓存
 clean:

@@ -12,6 +12,19 @@ from model import GPT
 from data import prepare_data, create_dataloader
 
 
+def unpack_batch(batch, device):
+    """兼容文本/多模态两种batch格式"""
+    if isinstance(batch, (list, tuple)) and len(batch) == 2:
+        x, y = batch
+        return x.to(device), y.to(device), None, None
+
+    if isinstance(batch, (list, tuple)) and len(batch) == 4:
+        x, y, image, audio = batch
+        return x.to(device), y.to(device), image.to(device), audio.to(device)
+
+    raise ValueError(f"不支持的batch格式，期望2或4个张量，实际为: {type(batch)}")
+
+
 def get_lr(it, config):
     """学习率调度：warmup + cosine decay"""
     # 1) 线性warmup
@@ -33,12 +46,12 @@ def estimate_loss(model, val_loader, config, device):
     model.eval()
     losses = []
     
-    for i, (x, y) in enumerate(val_loader):
+    for i, batch in enumerate(val_loader):
         if i >= config.eval_iters:
             break
-        x, y = x.to(device), y.to(device)
+        x, y, image, audio = unpack_batch(batch, device)
         with torch.amp.autocast(device_type='cuda' if device.type == 'cuda' else 'cpu', dtype=torch.float16):
-            logits, loss = model(x, y)
+            logits, loss = model(x, y, image=image, audio=audio)
         losses.append(loss.item())
     
     model.train()
@@ -50,6 +63,19 @@ def train():
     # 配置
     model_config = ModelConfig()
     train_config = TrainConfig()
+
+    env_train_multimodal = os.getenv("LLM_MULTIMODAL", "").strip().lower() in {"1", "true", "yes", "on"}
+    train_multimodal = getattr(train_config, 'train_multimodal', False) or env_train_multimodal
+    if train_multimodal and not getattr(model_config, 'multimodal_enabled', False):
+        model_config.multimodal_enabled = True
+
+    if train_multimodal:
+        mm_block_size = getattr(train_config, 'multimodal_block_size', model_config.block_size)
+        if model_config.block_size > mm_block_size:
+            model_config.block_size = mm_block_size
+        mm_batch_size = getattr(train_config, 'multimodal_batch_size', train_config.batch_size)
+        if train_config.batch_size > mm_batch_size:
+            train_config.batch_size = mm_batch_size
     
     # 设置设备
     device = torch.device("cuda" if torch.cuda.is_available() else 
@@ -66,8 +92,18 @@ def train():
         dataset_name=train_config.dataset_name,
         dataset_config=train_config.dataset_config,
         block_size=model_config.block_size,
-        clean_data=clean_data
+        clean_data=clean_data,
+        multimodal=train_multimodal,
+        multimodal_image_size=getattr(train_config, 'multimodal_image_size', 64),
+        multimodal_audio_len=getattr(train_config, 'multimodal_audio_len', 50),
+        audio_input_dim=getattr(model_config, 'audio_input_dim', 80)
     )
+
+    if train_multimodal:
+        print("训练模式: 多模态（文本+图像+语音）")
+        print(f"多模态参数: block_size={model_config.block_size}, batch_size={train_config.batch_size}")
+    else:
+        print("训练模式: 文本")
     
     train_loader = create_dataloader(train_dataset, train_config.batch_size, shuffle=True)
     val_loader = create_dataloader(val_dataset, train_config.batch_size, shuffle=False)
@@ -103,17 +139,17 @@ def train():
     last_grad_warn_iter = -10**9
     
     while iter_num < train_config.max_iters:
-        for x, y in train_loader:
+        for batch in train_loader:
             # 学习率调度
             lr = get_lr(iter_num, train_config)
             for param_group in optimizer.param_groups:
                 param_group['lr'] = lr
             
             # 前向传播
-            x, y = x.to(device), y.to(device)
+            x, y, image, audio = unpack_batch(batch, device)
             with torch.amp.autocast(device_type='cuda' if device.type == 'cuda' else 'cpu', 
                                    dtype=torch.float16, enabled=device.type=='cuda'):
-                logits, loss = model(x, y)
+                logits, loss = model(x, y, image=image, audio=audio)
             
             # 反向传播
             optimizer.zero_grad(set_to_none=True)
