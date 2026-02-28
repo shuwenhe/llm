@@ -161,6 +161,7 @@ test:
 	@echo "运行基础验收链路..."
 	$(MAKE) step1
 	$(MAKE) step2
+	$(PYTHON) test/regression_batched_matmul_grad.py
 	$(MAKE) step3
 	$(PYTHON) test/test_model.py
 	@echo "✓ 基础验收链路全部通过"
