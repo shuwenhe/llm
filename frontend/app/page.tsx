@@ -33,6 +33,7 @@ export default function Home() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
+  const [showToolbar, setShowToolbar] = useState(true);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [copiedSystemPrompt, setCopiedSystemPrompt] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -128,6 +129,10 @@ export default function Home() {
     fileInputRef.current?.click();
   };
 
+  const removeSelectedFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const onFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
@@ -152,7 +157,7 @@ export default function Home() {
 
   const sendMessage = async () => {
     const prompt = input.trim();
-    if (!prompt || loading || !currentConvId) return;
+    if ((!prompt && selectedFiles.length === 0) || loading || !currentConvId) return;
 
     setError(null);
     setLoading(true);
@@ -163,7 +168,8 @@ export default function Home() {
     setMessages(nextMessages);
 
     try {
-      const response = await fetch(endpoint, {
+      // 如果有文件，使用FormData；否则使用JSON
+      let fetchOptions: RequestInit = {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -179,7 +185,34 @@ export default function Home() {
           use_history: useHistory,
           max_history_messages: maxHistoryMessages,
         }),
-      });
+      };
+
+      // 如果有选中的文件，改用FormData
+      if (selectedFiles.length > 0) {
+        const formData = new FormData();
+        formData.append("prompt", finalPrompt);
+        formData.append("max_new_tokens", maxNewTokens.toString());
+        formData.append("temperature", temperature.toString());
+        formData.append("top_k", topK.toString());
+        formData.append("top_p", topP.toString());
+        formData.append("repetition_penalty", repetitionPenalty.toString());
+        formData.append("session_id", sessionId || "");
+        formData.append("use_history", useHistory.toString());
+        formData.append("max_history_messages", maxHistoryMessages.toString());
+        
+        // 添加所有文件
+        selectedFiles.forEach((file) => {
+          formData.append("files", file);
+        });
+
+        fetchOptions = {
+          method: "POST",
+          body: formData,
+        };
+        delete fetchOptions.headers;
+      }
+
+      const response = await fetch(endpoint, fetchOptions);
 
       if (!response.ok) {
         const detail = await response.text();
@@ -282,6 +315,7 @@ export default function Home() {
       {/* 主聊天区域 */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* 顶部工具栏 */}
+        {showToolbar && (
         <div className="border-b border-zinc-200 px-6 py-4 flex items-center justify-between">
           <button
             onClick={() => setShowSidebar(!showSidebar)}
@@ -289,13 +323,32 @@ export default function Home() {
           >
             {showSidebar ? "←" : "→"}
           </button>
-          <h1 className="text-lg font-semibold text-zinc-900">
-            {currentConv?.title || "对话"}
-          </h1>
-          <div className="text-xs text-zinc-500">
-            {currentConv?.messages.length || 0} 条消息
+          <div />
+          <div className="flex items-center gap-4">
+            <div className="text-xs text-zinc-500">
+              {currentConv?.messages.length || 0} 条消息
+            </div>
+            <button
+              onClick={() => setShowToolbar(false)}
+              className="text-xs text-zinc-400 hover:text-zinc-600"
+              title="隐藏工具栏"
+            >
+              ✕
+            </button>
           </div>
         </div>
+        )}
+        {!showToolbar && (
+        <div className="px-4 py-2">
+          <button
+            onClick={() => setShowToolbar(true)}
+            className="text-xs text-zinc-400 hover:text-zinc-600"
+            title="显示工具栏"
+          >
+            ▼ 工具栏
+          </button>
+        </div>
+        )}
 
         {/* 消息区域 */}
         <div className="flex-1 overflow-y-auto px-6 py-8">

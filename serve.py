@@ -1,4 +1,6 @@
 """工业化推理服务（FastAPI）"""
+import base64
+import io
 import json
 import logging
 import os
@@ -14,7 +16,8 @@ from uuid import uuid4
 
 import jwt
 import torch
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, Response, UploadFile
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
@@ -23,6 +26,35 @@ from pydantic import BaseModel, Field
 from config import ModelConfig
 from data import load_tokenizer
 from model import GPT
+
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
+
+
+def load_image_from_bytes(image_data: bytes) -> torch.Tensor:
+    """从字节数据加载图片并转换为张量"""
+    if Image is None:
+        raise ImportError("Pillow is required for image processing. Install with: pip install Pillow")
+    
+    img = Image.open(io.BytesIO(image_data)).convert('RGB')
+    # 标准化图片大小为 224x224
+    img = img.resize((224, 224), Image.Resampling.LANCZOS)
+    
+    # 转换为张量并归一化 [0, 1]
+    img_tensor = torch.tensor(list(img.getdata()), dtype=torch.float32)
+    img_tensor = img_tensor.view(224, 224, 3) / 255.0
+    
+    # 转换为 (C, H, W) 格式
+    img_tensor = img_tensor.permute(2, 0, 1)
+    
+    # 标准的 ImageNet 归一化
+    mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
+    std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
+    img_tensor = (img_tensor - mean) / std
+    
+    return img_tensor.unsqueeze(0)  # 添加 batch 维度
 
 
 def post_process_text(text: str) -> str:
@@ -72,6 +104,7 @@ class GenerateRequest(BaseModel):
     session_id: Optional[str] = Field(default=None, max_length=128)
     use_history: bool = Field(default=True)
     max_history_messages: int = Field(default=8, ge=0, le=50)
+    image_base64: Optional[str] = Field(default=None, description="Base64 encoded image data")
 
 
 class GenerateResponse(BaseModel):
@@ -344,7 +377,13 @@ def load_model_from_checkpoint() -> tuple[GPT, ModelConfig]:
     checkpoint = torch.load(checkpoint_path, map_location="cpu")
     model_config = ModelConfig(**checkpoint["model_config"])
     model = GPT(model_config)
-    model.load_state_dict(checkpoint["model"])
+    
+    # Handle torch.compile checkpoint format with _orig_mod prefix
+    state_dict = checkpoint["model"]
+    if any(k.startswith("_orig_mod.") for k in state_dict.keys()):
+        state_dict = {k.replace("_orig_mod.", ""): v for k, v in state_dict.items()}
+    
+    model.load_state_dict(state_dict)
     model.eval()
     return model, model_config
 
@@ -373,6 +412,21 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="LLM Service", version="1.0.0", lifespan=lifespan)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle validation errors with safe error serialization"""
+    try:
+        # Try normal error response first
+        from fastapi.exception_handlers import request_validation_error_handler
+        return await request_validation_error_handler(request, exc)
+    except (UnicodeDecodeError, UnicodeEncodeError):
+        # If encoding fails (e.g., binary data in fields), return safe error message
+        return {
+            "detail": "Invalid request: request body contains invalid characters or binary data",
+            "error": "validation_error"
+        }
 
 
 def get_cors_origins() -> list[str]:
@@ -531,6 +585,17 @@ def generate(req: GenerateRequest, request: Request, identity: str = Depends(opt
     t0 = time.time()
 
     try:
+        # Process image if provided
+        image_tensor = None
+        if req.image_base64:
+            try:
+                image_data = base64.b64decode(req.image_base64)
+                image_tensor = load_image_from_bytes(image_data).to(state.device)
+            except Exception as e:
+                logger.warning(f"Failed to process image: {e}")
+                # Continue without image
+                image_tensor = None
+
         with torch.no_grad():
             tokens = state.tokenizer.encode(model_prompt, return_tensors="pt").to(state.device)
             output = state.model.generate(
@@ -540,6 +605,7 @@ def generate(req: GenerateRequest, request: Request, identity: str = Depends(opt
                 top_k=req.top_k,
                 top_p=req.top_p,
                 repetition_penalty=req.repetition_penalty,
+                image=image_tensor,
             )
             raw_text = state.tokenizer.decode(output[0].tolist())
             text = raw_text
@@ -563,6 +629,101 @@ def generate(req: GenerateRequest, request: Request, identity: str = Depends(opt
 
     if req.use_history:
         session_store.append_message(session_id, "user", req.prompt)
+        session_store.append_message(session_id, "assistant", text)
+        SESSIONS_TOTAL.set(session_store.unique_session_count())
+
+    return GenerateResponse(
+        text=text,
+        latency_ms=round(latency_ms, 2),
+        model_params_m=round(state.model_params_m, 2),
+        device=str(state.device),
+        session_id=session_id,
+    )
+
+
+@app.post("/v1/generate-multipart", response_model=GenerateResponse)
+async def generate_multipart(
+    prompt: str = "",
+    max_new_tokens: int = 120,
+    temperature: float = 0.8,
+    top_k: int = 40,
+    top_p: float = 0.9,
+    repetition_penalty: float = 1.1,
+    session_id: Optional[str] = None,
+    use_history: bool = True,
+    max_history_messages: int = 8,
+    image: Optional[UploadFile] = File(None),
+    request_obj: Request = None,
+    identity: str = Depends(optional_auth),
+):
+    """多部分表单生成端点 - 支持图片上传"""
+    if not state.ready or state.model is None or state.tokenizer is None or state.device is None:
+        GENERATE_COUNT.labels(status="not_ready").inc()
+        raise HTTPException(status_code=503, detail="model not ready")
+
+    if not prompt:
+        raise HTTPException(status_code=400, detail="prompt is required")
+
+    rpm_limit = get_rate_limit_rpm()
+    if not rate_limiter.allow(identity, rpm_limit, window_seconds=60):
+        GENERATE_COUNT.labels(status="rate_limited").inc()
+        raise HTTPException(status_code=429, detail="rate limit exceeded")
+
+    session_id = session_id or str(uuid4())
+    model_prompt = build_prompt_with_history(
+        prompt=prompt,
+        session_id=session_id,
+        use_history=use_history,
+        max_history_messages=max_history_messages,
+    )
+
+    t0 = time.time()
+
+    try:
+        # Process image if provided
+        image_tensor = None
+        if image:
+            try:
+                image_data = await image.read()
+                image_tensor = load_image_from_bytes(image_data).to(state.device)
+            except Exception as e:
+                logger.warning(f"Failed to process image: {e}")
+                # Continue without image
+                image_tensor = None
+
+        with torch.no_grad():
+            tokens = state.tokenizer.encode(model_prompt, return_tensors="pt").to(state.device)
+            output = state.model.generate(
+                tokens,
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                top_k=top_k,
+                top_p=top_p,
+                repetition_penalty=repetition_penalty,
+                image=image_tensor,
+            )
+            raw_text = state.tokenizer.decode(output[0].tolist())
+            text = raw_text
+            text = post_process_text(text)
+
+            if text.startswith(model_prompt):
+                text = text[len(model_prompt):].strip()
+            elif text.startswith(prompt):
+                text = text[len(prompt):].strip()
+    except Exception as e:
+        logger.exception("generation_failed", extra={
+            "session_id": session_id,
+            "identity": identity,
+        })
+        GENERATE_COUNT.labels(status="error").inc()
+        raise HTTPException(status_code=500, detail=f"generation failed: {e}") from e
+
+    latency_ms = (time.time() - t0) * 1000.0
+    GENERATE_COUNT.labels(status="ok").inc()
+    GENERATE_LATENCY.observe(latency_ms / 1000.0)
+
+    if use_history:
+        session_store.append_message(session_id, "user", prompt)
         session_store.append_message(session_id, "assistant", text)
         SESSIONS_TOTAL.set(session_store.unique_session_count())
 
