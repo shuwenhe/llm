@@ -3,6 +3,9 @@
 # Python解释器（优先使用项目内虚拟环境）
 PYTHON := $(shell if [ -x ./venv/bin/python ]; then echo ./venv/bin/python; else echo python3; fi)
 
+# Python路径（使脚本能够找到src/models中的模块）
+export PYTHONPATH=src/models:src:$(PYTHONPATH)
+
 # 核心模型 checkpoint (所有模态共用)
 CORE_MODEL_CHECKPOINT ?= checkpoints/model.pt
 
