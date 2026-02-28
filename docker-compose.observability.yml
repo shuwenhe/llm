@@ -1,0 +1,46 @@
+version: '3.9'
+
+services:
+  llm:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: my-llm:latest
+    container_name: llm-service
+    ports:
+      - "8000:8000"
+    environment:
+      - LLM_CHECKPOINT=checkpoints/best_model.pt
+      - LLM_API_KEYS=${LLM_API_KEYS:-}
+      - LLM_USERS=${LLM_USERS:-}
+      - LLM_JWT_SECRET=${LLM_JWT_SECRET:-change-me-in-production}
+      - LLM_RATE_LIMIT_RPM=${LLM_RATE_LIMIT_RPM:-60}
+      - LLM_SESSION_DB=/app/data/sessions.db
+    volumes:
+      - ./checkpoints:/app/checkpoints:ro
+      - ./data_runtime:/app/data
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: llm-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - llm
+
+  grafana:
+    image: grafana/grafana:11.1.5
+    container_name: llm-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/llm-overview.json
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus

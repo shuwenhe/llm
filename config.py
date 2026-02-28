@@ -36,7 +36,7 @@ class TrainConfig:
     # 数据
     dataset_name = "wikitext"  # 或使用自己的数据
     dataset_config = "wikitext-2-raw-v1"
-    clean_data = False  # 是否清洗WikiText格式标记（暂时禁用以快速收敛）
+    clean_data = True  # 是否清洗WikiText格式标记
     train_multimodal = False  # 是否启用完整多模态训练（文本+图像+语音）
     multimodal_image_size = 64
     multimodal_audio_len = 50
@@ -45,29 +45,29 @@ class TrainConfig:
     
     # 训练参数
     batch_size = 16
-    max_iters = 10000
+    max_iters = 20000
     eval_interval = 500
     eval_iters = 100
     log_interval = 10
     
     # 优化器
-    learning_rate = 1e-5      # 1e-4 → 1e-5（再降10倍）
+    learning_rate = 3e-4
     weight_decay = 0.1
     beta1 = 0.9
     beta2 = 0.95
-    grad_clip = 0.1           # 0.5 → 0.1（更严格）
+    grad_clip = 1.0
     grad_norm_warn = 5.0      # 梯度范数告警阈值
     grad_norm_warn_start = 100  # 从第几步开始检查告警（默认warmup后）
     grad_norm_warn_interval = 50  # 告警最小间隔步数（防止刷屏）
     
     # 学习率调度
     warmup_iters = 100
-    lr_decay_iters = 10000
-    min_lr = 1e-6
+    lr_decay_iters = 20000
+    min_lr = 3e-5
     
     # 系统
     device = "cuda"  # cuda, mps, cpu
-    compile = False  # 是否使用torch.compile（需要PyTorch 2.0+）
+    compile = True  # 是否使用torch.compile（需要PyTorch 2.0+）
     
     # 日志和保存
     out_dir = "checkpoints"

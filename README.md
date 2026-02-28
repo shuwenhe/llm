@@ -140,7 +140,59 @@ python generate.py
 
 - `GET /healthz`：进程健康检查
 - `GET /readyz`：模型就绪检查
+- `GET /metrics`：Prometheus监控指标
 - `POST /v1/generate`：文本生成接口
+
+### 安全与限流（生产建议）
+
+- `LLM_API_KEYS`：逗号分隔的API Key列表，设置后 `/v1/generate` 必须携带请求头 `X-API-Key`
+- `LLM_USERS`：OAuth2账号密码，格式 `user1:pass1,user2:pass2`
+- `LLM_JWT_SECRET`：JWT签名密钥（生产必须修改）
+- `LLM_JWT_EXPIRE_MINUTES`：JWT有效期（分钟）
+- `LLM_RATE_LIMIT_RPM`：每分钟每个调用方限流（0表示关闭）
+- `LLM_LOG_LEVEL`：日志级别（默认 `INFO`）
+- `LLM_SESSION_DB`：会话SQLite文件路径（默认 `sessions.db`）
+
+示例：
+
+```bash
+export LLM_API_KEYS="prod-key-1,prod-key-2"
+export LLM_USERS="admin:admin123"
+export LLM_JWT_SECRET="replace-with-strong-secret"
+export LLM_RATE_LIMIT_RPM=60
+make serve
+```
+
+OAuth2 获取 token：
+
+```bash
+curl -X POST http://127.0.0.1:8000/oauth/token \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    -d "username=admin&password=admin123"
+```
+
+使用 Bearer Token 请求：
+
+```bash
+curl -X POST http://127.0.0.1:8000/v1/generate \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer <access_token>" \
+    -d '{"prompt":"Hello","max_new_tokens":64,"session_id":"demo-session"}'
+```
+
+会话接口：
+
+- `GET /v1/sessions/{session_id}`：读取历史会话
+- `DELETE /v1/sessions/{session_id}`：删除历史会话
+
+请求示例（带鉴权）：
+
+```bash
+curl -X POST http://127.0.0.1:8000/v1/generate \
+    -H "Content-Type: application/json" \
+    -H "X-API-Key: prod-key-1" \
+    -d '{"prompt":"Hello","max_new_tokens":64}'
+```
 
 示例请求：
 
@@ -149,6 +201,35 @@ curl -X POST http://127.0.0.1:8000/v1/generate \
     -H "Content-Type: application/json" \
     -d '{"prompt":"Hello","max_new_tokens":64}'
 ```
+
+### 容器化部署
+
+```bash
+docker build -t my-llm:latest .
+docker run --rm -p 8000:8000 -e LLM_CHECKPOINT=checkpoints/best_model.pt my-llm:latest
+```
+
+### Prometheus + Grafana
+
+```bash
+make obs-up
+```
+
+- Prometheus: http://127.0.0.1:9090
+- Grafana: http://127.0.0.1:3000 （默认 admin/admin）
+
+停止：
+
+```bash
+make obs-down
+```
+
+### CI/CD（镜像构建与自动发布）
+
+已提供 GitHub Actions 工作流：[.github/workflows/cicd.yml](.github/workflows/cicd.yml)
+
+- PR/Push 自动执行测试
+- Push 到主分支或 tag 自动构建并推送镜像到 GHCR
 | **工具** | |
 | `make info` | 查看模型配置信息 |
 | `make check-deps` | 检查依赖安装情况 |

@@ -1,4 +1,4 @@
-.PHONY: help install test train train-multimodal serve serve-dev generate quick-generate quick-test-multimodal clean clean-checkpoints clean-all
+.PHONY: help install test train train-multimodal serve serve-dev obs-up obs-down generate quick-generate quick-test-multimodal clean clean-checkpoints clean-all
 
 # Python解释器（优先使用项目内虚拟环境）
 PYTHON := $(shell if [ -x ./venv/bin/python ]; then echo ./venv/bin/python; else echo python3; fi)
@@ -19,6 +19,8 @@ help:
 	@echo "  make train-multimodal - 开始完整多模态训练(文本+图像+语音)"
 	@echo "  make serve            - 启动推理API服务(生产模式)"
 	@echo "  make serve-dev        - 启动推理API服务(开发热更新)"
+	@echo "  make obs-up           - 启动可观测性栈(LLM+Prometheus+Grafana)"
+	@echo "  make obs-down         - 停止可观测性栈"
 	@echo "  make generate         - 运行交互式文本生成"
 	@echo "  make quick-generate   - 批量测试生成参数"
 	@echo "  make quick-test       - 快速测试(验证模型可用)"
@@ -118,6 +120,15 @@ serve:
 serve-dev:
 	@echo "启动推理API服务(开发模式)..."
 	$(PYTHON) -m uvicorn serve:app --host 0.0.0.0 --port 8000 --reload
+
+# 可观测性栈（服务 + Prometheus + Grafana）
+obs-up:
+	@echo "启动可观测性栈..."
+	docker compose -f docker-compose.observability.yml up -d --build
+
+obs-down:
+	@echo "停止可观测性栈..."
+	docker compose -f docker-compose.observability.yml down
 
 # 文本生成
 generate:
