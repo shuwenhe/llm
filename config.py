@@ -4,9 +4,9 @@ class ModelConfig:
     """GPT模型配置"""
     # 模型架构
     vocab_size = 50257  # GPT-2 tokenizer的词表大小
-    n_layer = 6  # Transformer层数（从小模型开始）
-    n_head = 6   # 注意力头数
-    n_embd = 384  # 嵌入维度
+    n_layer = 12  # Transformer层数
+    n_head = 12   # 注意力头数
+    n_embd = 768  # 嵌入维度
     
     # 序列和训练
     block_size = 512  # 最大序列长度

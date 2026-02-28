@@ -26,15 +26,35 @@ from model import GPT
 
 
 def post_process_text(text: str) -> str:
-    """轻量后处理：清理维基标记与多余符号"""
+    """增强后处理：清理维基标记、重复、多余符号"""
+    # 清理维基标记
     text = text.replace(' @-@ ', '-')
     text = text.replace('@-@', '-')
     text = text.replace(' @,@ ', ',')
     text = text.replace('@,@', ',')
     text = text.replace(' @.@ ', '.')
     text = text.replace('@.@', '.')
+    
+    # 清理连续的等号
     text = re.sub(r'(\s*=\s*){2,}', ' ', text)
+    
+    # 清理过多的标点重复（如连续逗号、点等）
+    text = re.sub(r',{2,}', ',', text)
+    text = re.sub(r'\.{2,}', '.', text)
+    text = re.sub(r';{2,}', ';', text)
+    text = re.sub(r'\?{2,}', '?', text)
+    
+    # 清理不合理的文本模式（太多特殊字符）
+    text = re.sub(r'(\s+["\']?\s*){3,}', ' ', text)
+    
+    # 清理多余空格
     text = re.sub(r'\s+', ' ', text).strip()
+    
+    # 移除只包含标点的句子
+    sentences = text.split('。')
+    sentences = [s.strip() for s in sentences if s.strip() and not re.match(r'^[\s\,\.\:\;\!\?\'"\-_]+$', s.strip())]
+    text = '。'.join(sentences) if sentences else text
+    
     return text
 
 

@@ -37,14 +37,14 @@ export default function Home() {
   const [copiedSystemPrompt, setCopiedSystemPrompt] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
-  const [maxNewTokens, setMaxNewTokens] = useState(180);
-  const [temperature, setTemperature] = useState(0.8);
-  const [topK, setTopK] = useState(40);
-  const [topP, setTopP] = useState(0.9);
+  const [maxNewTokens, setMaxNewTokens] = useState(150);
+  const [temperature, setTemperature] = useState(0.6);
+  const [topK, setTopK] = useState(20);
+  const [topP, setTopP] = useState(0.85);
   const [repetitionPenalty, setRepetitionPenalty] = useState(1.1);
   const [useHistory, setUseHistory] = useState(true);
   const [maxHistoryMessages, setMaxHistoryMessages] = useState(8);
-  const [systemPrompt, setSystemPrompt] = useState("请用中文回答");
+  const [systemPrompt, setSystemPrompt] = useState("你是一个有帮助的助手。请用中文回答所有问题。");
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
