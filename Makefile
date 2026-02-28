@@ -145,7 +145,7 @@ setup-all:
 # 运行模型测试
 test:
 	@echo "运行模型测试..."
-	$(PYTHON) test_model.py
+	$(PYTHON) test/test_model.py
 
 # 训练模型（默认：中文文本训练）
 train:
@@ -158,12 +158,12 @@ train:
 # 基础文本训练（原始训练脚本）
 train-basic:
 	@echo "开始基础文本训练..."
-	$(PYTHON) train.py
+	$(PYTHON) src/training/train.py
 
 # 多模态训练
 train-multimodal:
 	@echo "开始多模态训练模型..."
-	LLM_MULTIMODAL=1 $(PYTHON) train.py
+	LLM_MULTIMODAL=1 $(PYTHON) src/training/train.py
 
 # 视觉编码器训练（支持参数覆盖）
 # 示例:
@@ -173,7 +173,7 @@ train-multimodal:
 train-vision:
 	@echo "开始训练视觉编码器..."
 	@echo "data_source=$(VISION_DATA_SOURCE), batch_size=$(VISION_BATCH_SIZE), epochs=$(VISION_EPOCHS), max_steps=$(VISION_MAX_STEPS), lr=$(VISION_LR)"
-	$(PYTHON) train_vision_real.py \
+	$(PYTHON) src/training/train_vision_real.py \
 		--data-source $(VISION_DATA_SOURCE) \
 		--dataset-name $(VISION_DATASET_NAME) \
 		--batch-size $(VISION_BATCH_SIZE) \
@@ -196,7 +196,7 @@ train-vision-quick:
 train-chinese:
 	@echo "开始训练中文文本能力..."
 	@echo "batch_size=$(CHINESE_BATCH_SIZE), epochs=$(CHINESE_EPOCHS), lr=$(CHINESE_LR)"
-	$(PYTHON) train_chinese.py \
+	$(PYTHON) src/training/train_chinese.py \
 		--batch-size $(CHINESE_BATCH_SIZE) \
 		--epochs $(CHINESE_EPOCHS) \
 		--learning-rate $(CHINESE_LR) \
@@ -206,13 +206,13 @@ train-chinese:
 # 推理服务（开发）
 serve-dev:
 	@echo "启动推理API服务(开发模式)..."
-	$(PYTHON) -m uvicorn serve:app --host 0.0.0.0 --port 8000 --reload
+	$(PYTHON) -m uvicorn src.inference.serve:app --host 0.0.0.0 --port 8000 --reload
 
 # 推理服务（统一模型）
 serve:
 	@echo "启动推理API服务..."
 	@echo "使用统一模型: $(CORE_MODEL_CHECKPOINT)"
-	LLM_CHECKPOINT=$(CORE_MODEL_CHECKPOINT) $(PYTHON) -m uvicorn serve:app --host 0.0.0.0 --port 8000 --reload
+	LLM_CHECKPOINT=$(CORE_MODEL_CHECKPOINT) $(PYTHON) -m uvicorn src.inference.serve:app --host 0.0.0.0 --port 8000 --reload
 
 # 前端（Next.js）
 frontend-install:
@@ -286,12 +286,12 @@ dev-all:
 # 文本生成
 generate:
 	@echo "启动文本生成..."
-	$(PYTHON) generate.py
+	$(PYTHON) src/inference/generate.py
 
 # 快速生成测试（批量测试不同参数）
 quick-generate:
 	@echo "批量测试生成参数..."
-	$(PYTHON) quick_generate.py
+	$(PYTHON) src/inference/quick_generate.py
 
 # 快速测试（用于验证代码）
 quick-test:
