@@ -1,12 +1,12 @@
-"""创建演示模型的脚本"""
+"""创建演示模型的脚本（使用core实现）"""
 import os
-import torch
+import pickle
 from pathlib import Path
 from app.modeling.config import ModelConfig
 from app.modeling.model import GPT
 
 
-def create_demo_model(output_path="checkpoints/best_model.pt"):
+def create_demo_model(output_path="checkpoints/best_model.pkl"):
     """创建一个小的演示模型用于测试生成脚本"""
     
     # 创建 checkpoints 目录
@@ -28,9 +28,22 @@ def create_demo_model(output_path="checkpoints/best_model.pt"):
     print(f"  层数: {config.n_layer}")
     print(f"  嵌入维度: {config.n_embd}")
     
+    # 收集模型状态
+    def collect_state_dict(module):
+        """递归收集模型参数"""
+        state = {}
+        for name, value in module.__dict__.items():
+            if isinstance(value, type(model.wte.weight)):  # Parameter
+                state[name] = value.data
+            elif hasattr(value, '__dict__') and hasattr(value, 'parameters'):  # Module
+                state[name] = collect_state_dict(value)
+            elif isinstance(value, list):
+                state[name] = [collect_state_dict(item) if hasattr(item, 'parameters') else item for item in value]
+        return state
+    
     # 保存模型
     checkpoint = {
-        'model': model.state_dict(),
+        'model': collect_state_dict(model),
         'model_config': {
             'n_layer': config.n_layer,
             'n_head': config.n_head,
@@ -43,7 +56,9 @@ def create_demo_model(output_path="checkpoints/best_model.pt"):
         'epoch': 0,
     }
     
-    torch.save(checkpoint, output_path)
+    with open(output_path, 'wb') as f:
+        pickle.dump(checkpoint, f)
+    
     print(f"✓ 模型已保存到: {output_path}\n")
     print("现在你可以运行:")
     print("  make generate        # 测试文本生成")

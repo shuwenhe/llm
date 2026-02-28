@@ -1,4 +1,5 @@
-torch>=2.0.0
+# 核心依赖（纯 numpy 自研实现）
+
 transformers>=4.30.0
 datasets>=2.12.0
 tokenizers>=0.13.3

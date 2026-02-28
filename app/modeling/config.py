@@ -67,7 +67,7 @@ class TrainConfig:
     
     # 系统
     device = "cuda"  # cuda, mps, cpu
-    compile = True  # 是否使用torch.compile（需要PyTorch 2.0+）
+    compile = False  # 自研后端不使用框架编译选项
     
     # 日志和保存
     out_dir = "checkpoints"

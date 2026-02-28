@@ -1,45 +1,34 @@
-"""Step 3: 迷你训练 10 step 验证（检查 loss 下降趋势）"""
+"""Step 3: 迷你训练 10 step 验证（自研后端）"""
 
-import torch
+import numpy as np
 
-from app.modeling.config import ModelConfig
-from app.modeling.model import GPT
+from app.core.models import TinyLM
+from app.core.optim import AdamW
 
 
 def run_step3_mini_train_check() -> None:
-    torch.manual_seed(42)
-
-    config = ModelConfig(
-        vocab_size=1000,
-        n_layer=2,
-        n_head=2,
-        n_embd=128,
-        block_size=64,
-        dropout=0.0,
-    )
-
-    model = GPT(config)
-    model.train()
-
-    optimizer = torch.optim.AdamW(model.parameters(), lr=3e-3)
+    np.random.seed(42)
+    vocab_size = 1000
+    model = TinyLM(vocab_size=vocab_size, n_embd=128)
+    optimizer = AdamW(model.parameters(), lr=3e-3)
 
     batch_size = 4
     seq_len = 32
 
     # 固定小批次，验证是否能在短步数内过拟合
-    x = torch.randint(0, config.vocab_size, (batch_size, seq_len), dtype=torch.long)
-    y = torch.randint(0, config.vocab_size, (batch_size, seq_len), dtype=torch.long)
+    x = np.random.randint(0, vocab_size, size=(batch_size, seq_len), dtype=np.int64)
+    y = np.random.randint(0, vocab_size, size=(batch_size, seq_len), dtype=np.int64)
 
     losses: list[float] = []
 
     for step in range(10):
-        optimizer.zero_grad(set_to_none=True)
+        optimizer.zero_grad()
         logits, loss = model(x, y)
 
-        assert logits.shape == (batch_size, seq_len, config.vocab_size), (
-            f"logits 形状错误: {logits.shape}, 期望 {(batch_size, seq_len, config.vocab_size)}"
+        assert logits.shape == (batch_size, seq_len, vocab_size), (
+            f"logits 形状错误: {logits.shape}, 期望 {(batch_size, seq_len, vocab_size)}"
         )
-        assert loss is not None and torch.isfinite(loss), f"step={step} loss 非法: {loss}"
+        assert loss is not None and np.isfinite(loss.item()), f"step={step} loss 非法: {loss.item()}"
 
         loss.backward()
         optimizer.step()

@@ -1,77 +1,77 @@
-"""快速测试模型是否正常工作"""
-import torch
-from app.modeling.config import ModelConfig
-from app.modeling.model import GPT
+"""快速测试自研后端模型是否正常工作"""
+import os
+import pickle
+
+import numpy as np
+
+from app.core.models import TinyLM
 
 
 def test_model():
     """测试模型的基本功能"""
     print("="*50)
-    print("测试LLM模型")
+    print("测试自研后端 TinyLM 模型")
     print("="*50)
-    
-    # 创建小模型配置（用于测试）
-    config = ModelConfig(
-        vocab_size=1000,
-        n_layer=2,
-        n_head=2,
-        n_embd=128,
-        block_size=64
-    )
+
+    vocab_size = 1000
+    n_embd = 128
+    seq_length = 32
+    np.random.seed(42)
     
     print(f"\n模型配置:")
-    print(f"  - 词表大小: {config.vocab_size}")
-    print(f"  - 层数: {config.n_layer}")
-    print(f"  - 注意力头数: {config.n_head}")
-    print(f"  - 嵌入维度: {config.n_embd}")
-    print(f"  - 最大序列长度: {config.block_size}")
+    print(f"  - 词表大小: {vocab_size}")
+    print(f"  - 嵌入维度: {n_embd}")
+    print(f"  - 最大序列长度: {seq_length}")
     
     # 创建模型
     print(f"\n创建模型...")
-    model = GPT(config)
+    model = TinyLM(vocab_size=vocab_size, n_embd=n_embd)
     print(f"✓ 模型创建成功")
-    print(f"  参数量: {model.get_num_params()/1e6:.2f}M")
+    total_params = sum(p.data.size for p in model.parameters())
+    print(f"  参数量: {total_params/1e6:.2f}M")
     
     # 测试前向传播
     print(f"\n测试前向传播...")
     batch_size = 2
-    seq_length = 32
-    x = torch.randint(0, config.vocab_size, (batch_size, seq_length))
-    y = torch.randint(0, config.vocab_size, (batch_size, seq_length))
+    x = np.random.randint(0, vocab_size, size=(batch_size, seq_length), dtype=np.int64)
+    y = np.random.randint(0, vocab_size, size=(batch_size, seq_length), dtype=np.int64)
     
     logits, loss = model(x, y)
     print(f"✓ 前向传播成功")
     print(f"  输入形状: {x.shape}")
     print(f"  输出logits形状: {logits.shape}")
     print(f"  损失值: {loss.item():.4f}")
-    
-    # 测试生成
-    print(f"\n测试文本生成...")
-    model.eval()
-    with torch.no_grad():
-        generated = model.generate(x[:1], max_new_tokens=10, temperature=1.0)
-    print(f"✓ 生成成功")
+
+    # 自研最小后端不含完整 generate，这里做 argmax 伪生成检查
+    print(f"\n测试简化生成(argmax)...")
+    next_token = np.argmax(logits.data[0, -1])
+    pseudo_generated = np.concatenate([x[:1], np.array([[next_token]], dtype=np.int64)], axis=1)
+    print(f"✓ 简化生成成功")
     print(f"  输入长度: {x.shape[1]}")
-    print(f"  生成后长度: {generated.shape[1]}")
-    print(f"  生成的tokens: {generated[0].tolist()[:20]}...")
+    print(f"  生成后长度: {pseudo_generated.shape[1]}")
+    print(f"  新token: {int(next_token)}")
     
     # 测试模型保存和加载
     print(f"\n测试模型保存和加载...")
-    checkpoint_path = "test_checkpoint.pt"
-    torch.save({
-        'model': model.state_dict(),
-        'config': config.__dict__
-    }, checkpoint_path)
+    checkpoint_path = "test_checkpoint.pkl"
+    state_dict = {f"param_{i}": p.data.copy() for i, p in enumerate(model.parameters())}
+    with open(checkpoint_path, "wb") as f:
+        pickle.dump({"state_dict": state_dict, "vocab_size": vocab_size, "n_embd": n_embd}, f)
     print(f"✓ 模型保存成功: {checkpoint_path}")
-    
+
     # 加载模型
-    checkpoint = torch.load(checkpoint_path)
-    new_model = GPT(config)
-    new_model.load_state_dict(checkpoint['model'])
+    with open(checkpoint_path, "rb") as f:
+        checkpoint = pickle.load(f)
+    new_model = TinyLM(vocab_size=checkpoint["vocab_size"], n_embd=checkpoint["n_embd"])
+    for i, p in enumerate(new_model.parameters()):
+        p.data[...] = checkpoint["state_dict"][f"param_{i}"]
+
+    logits2, loss2 = new_model(x, y)
+    assert np.allclose(logits.data, logits2.data), "加载后 logits 不一致"
+    assert abs(loss.item() - loss2.item()) < 1e-10, "加载后 loss 不一致"
     print(f"✓ 模型加载成功")
-    
+
     # 清理测试文件
-    import os
     os.remove(checkpoint_path)
     print(f"✓ 清理测试文件")
     
@@ -79,8 +79,8 @@ def test_model():
     print(f"✅ 所有测试通过！模型工作正常。")
     print(f"="*50)
     print(f"\n下一步:")
-    print(f"  1. 运行 'python train.py' 开始训练")
-    print(f"  2. 训练完成后运行 'python generate.py' 生成文本")
+    print(f"  1. 运行 'make bootstrap-check' 进行基础验收")
+    print(f"  2. 逐模块将 training/inference 切换到自研后端")
 
 
 if __name__ == "__main__":

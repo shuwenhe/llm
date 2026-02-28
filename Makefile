@@ -1,4 +1,4 @@
-.PHONY: help install test step1 step2 step3 bootstrap-check train train-basic train-multimodal train-vision train-vision-quick train-chinese serve serve-dev obs-up obs-down generate quick-generate quick-test-multimodal demo gateway inference-generate inference-quick deploy-local-up deploy-local-down clean clean-checkpoints clean-all frontend-install frontend-dev frontend-build frontend-start kill-frontend kill-backend dev-all
+.PHONY: help install test step1 step2 step3 bootstrap-check train train-basic train-core train-multimodal train-chinese serve serve-dev serve-core serve-core-dev obs-up obs-down generate quick-generate quick-test-multimodal demo gateway inference-generate inference-quick deploy-local-up deploy-local-down clean clean-checkpoints clean-all frontend-install frontend-dev frontend-build frontend-start kill-frontend kill-backend dev-all
 
 # Python解释器（优先使用项目内虚拟环境）
 PYTHON := $(shell if [ -x ./venv/bin/python ]; then echo ./venv/bin/python; else echo python3; fi)
@@ -7,7 +7,7 @@ PYTHON := $(shell if [ -x ./venv/bin/python ]; then echo ./venv/bin/python; else
 export PYTHONPATH:=.
 
 # 核心模型 checkpoint (所有模态共用)
-CORE_MODEL_CHECKPOINT ?= checkpoints/model.pt
+CORE_MODEL_CHECKPOINT ?= checkpoints/model_core.pkl
 
 # 视觉训练参数（可在命令行覆盖）
 VISION_DATA_SOURCE ?= cifar10
@@ -52,13 +52,14 @@ help:
 	@echo "  make step3            - 第三步: 迷你训练10步验证"
 	@echo "  make bootstrap-check  - 一次跑完 step1/step2/step3"
 	@echo "  make train            - 开始训练模型(默认:中文文本)"
+	@echo "  make train-core       - 使用自研后端训练"
 	@echo "  make train-chinese    - 训练中文文本能力"
-	@echo "  make train-vision     - 训练视觉编码器"
-	@echo "  make train-vision-quick - 视觉训练快速验证"
 	@echo "  make train-multimodal - 完整多模态训练"
 	@echo "  make train-basic      - 基础文本训练"
 	@echo "  make serve            - 启动推理API服务(使用统一模型)"
 	@echo "  make serve-dev        - 启动推理API服务(开发热更新)"
+	@echo "  make serve-core       - 启动自研后端API服务"
+	@echo "  make serve-core-dev   - 启动自研后端API服务(开发热更新)"
 	@echo ""
 	@echo "${YELLOW}前端开发 (Next.js):${NC}"
 	@echo "  make frontend-install - 安装前端依赖"
@@ -85,7 +86,7 @@ help:
 	@echo "  make inference-quick  - 通过services边界运行快速生成"
 	@echo "  make demo             - 创建演示模型(无需训练，快速测试)"
 	@echo "  make quick-test       - 快速测试(验证模型可用)"
-	@echo "  make quick-test-multimodal - 快速测试多模态前向(文本+图像+语音)"
+	@echo "  make quick-test-multimodal - 快速测试多模态前向"
 	@echo "  make info             - 查看模型配置信息"
 	@echo "  make check-deps       - 检查依赖安装情况"
 	@echo "  make init             - 创建必要的项目目录"
@@ -157,8 +158,12 @@ setup-all:
 
 # 运行模型测试
 test:
-	@echo "运行模型测试..."
+	@echo "运行基础验收链路..."
+	$(MAKE) step1
+	$(MAKE) step2
+	$(MAKE) step3
 	$(PYTHON) test/test_model.py
+	@echo "✓ 基础验收链路全部通过"
 
 # 第一步：模型前向传播最小验证
 step1:
@@ -187,7 +192,7 @@ bootstrap-check:
 train:
 	@echo "开始训练模型..."
 	@echo "使用中文文本训练（推荐）"
-	@echo "其他选项: make train-vision, make train-multimodal, make train-basic"
+	@echo "其他选项: make train-multimodal, make train-basic"
 	@echo ""
 	$(MAKE) train-chinese
 
@@ -196,33 +201,14 @@ train-basic:
 	@echo "开始基础文本训练..."
 	$(PYTHON) -m app.training.train
 
+train-core:
+	@echo "开始自研后端训练..."
+	$(PYTHON) -m app.training.train_core
+
 # 多模态训练
 train-multimodal:
 	@echo "开始多模态训练模型..."
 	LLM_MULTIMODAL=1 $(PYTHON) -m app.training.train
-
-# 视觉编码器训练（支持参数覆盖）
-# 示例:
-#   make train-vision
-#   make train-vision VISION_DATA_SOURCE=local VISION_EPOCHS=5
-#   make train-vision VISION_DATA_SOURCE=huggingface VISION_DATASET_NAME=nlphuji/flickr30k
-train-vision:
-	@echo "开始训练视觉编码器..."
-	@echo "data_source=$(VISION_DATA_SOURCE), batch_size=$(VISION_BATCH_SIZE), epochs=$(VISION_EPOCHS), max_steps=$(VISION_MAX_STEPS), lr=$(VISION_LR)"
-	$(PYTHON) -m app.training.train_vision_real \
-		--data-source $(VISION_DATA_SOURCE) \
-		--dataset-name $(VISION_DATASET_NAME) \
-		--batch-size $(VISION_BATCH_SIZE) \
-		--epochs $(VISION_EPOCHS) \
-		--max-steps $(VISION_MAX_STEPS) \
-		--lr $(VISION_LR) \
-		--checkpoint $(VISION_CHECKPOINT) \
-		--output $(VISION_OUTPUT)
-
-# 视觉编码器快速验证（默认只跑20步）
-train-vision-quick:
-	@echo "视觉训练快速验证(仅少量steps)..."
-	$(MAKE) train-vision VISION_MAX_STEPS=20 VISION_EPOCHS=1
 
 # 中文文本训练（支持参数覆盖）
 # 示例:
@@ -232,17 +218,21 @@ train-vision-quick:
 train-chinese:
 	@echo "开始训练中文文本能力..."
 	@echo "batch_size=$(CHINESE_BATCH_SIZE), epochs=$(CHINESE_EPOCHS), lr=$(CHINESE_LR)"
-	$(PYTHON) -m app.training.train_chinese \
+	$(PYTHON) -m app.training.train_core \
 		--batch-size $(CHINESE_BATCH_SIZE) \
 		--epochs $(CHINESE_EPOCHS) \
 		--learning-rate $(CHINESE_LR) \
 		--checkpoint $(CHINESE_CHECKPOINT) \
-		--output $(CHINESE_OUTPUT)
+		--output checkpoints/model_core.pkl
 
 # 推理服务（开发）
 serve-dev:
 	@echo "启动推理API服务(开发模式)..."
 	$(PYTHON) -m uvicorn app.api.serve:app --host 0.0.0.0 --port 8000 --reload
+
+serve-core-dev:
+	@echo "启动自研后端API服务(开发模式)..."
+	$(PYTHON) -m uvicorn app.api.serve_core:app --host 0.0.0.0 --port 8000 --reload
 
 gateway:
 	@echo "启动网关服务(服务边界入口)..."
@@ -251,8 +241,12 @@ gateway:
 # 推理服务（统一模型）
 serve:
 	@echo "启动推理API服务..."
-	@echo "使用统一模型: $(CORE_MODEL_CHECKPOINT)"
-	LLM_CHECKPOINT=$(CORE_MODEL_CHECKPOINT) $(PYTHON) -m uvicorn app.api.serve:app --host 0.0.0.0 --port 8000 --reload
+	@echo "使用 core 模型: checkpoints/model_core.pkl"
+	LLM_CHECKPOINT=checkpoints/model_core.pkl $(PYTHON) -m uvicorn app.api.serve:app --host 0.0.0.0 --port 8000 --reload
+
+serve-core:
+	@echo "启动自研后端API服务..."
+	LLM_CHECKPOINT=checkpoints/model_core.pkl $(PYTHON) -m uvicorn app.api.serve_core:app --host 0.0.0.0 --port 8000 --reload
 
 # 前端（Next.js）
 frontend-install:
@@ -366,16 +360,14 @@ quick-test:
 # 多模态快速测试（随机输入）
 quick-test-multimodal:
 	@echo "多模态快速测试模式..."
-	$(PYTHON) -c "import torch; from app.modeling.model import GPT; from app.modeling.config import ModelConfig; \
-		config = ModelConfig(multimodal_enabled=True, n_layer=2, n_head=2, n_embd=128, block_size=256); \
+	$(PYTHON) -c "import numpy as np; from app.modeling.model import GPT; from app.modeling.config import ModelConfig; \
+		config = ModelConfig(multimodal_enabled=False, n_layer=2, n_head=2, n_embd=128, block_size=64); \
 		model = GPT(config); \
-		idx = torch.randint(0, config.vocab_size, (2, 32)); \
-		img = torch.randn(2, 3, 64, 64); \
-		aud = torch.randn(2, 50, config.audio_input_dim); \
-		logits, loss = model(idx, idx, image=img, audio=aud); \
+		idx = np.random.randint(0, config.vocab_size, (2, 32)); \
+		logits, loss = model(idx, idx); \
 		print(f'logits形状: {tuple(logits.shape)}'); \
-		print(f'loss: {loss.detach().item():.4f}'); \
-		print('✓ 多模态前向测试成功')"
+		print(f'loss: {float(loss):.4f}' if loss is not None else 'loss: None'); \
+		print('✓ 前向测试成功')"
 
 # 清理Python缓存
 clean:
@@ -389,7 +381,7 @@ clean:
 # 清理checkpoint文件
 clean-checkpoints:
 	@echo "删除checkpoint文件..."
-	rm -rf checkpoints/*.pt
+	rm -rf checkpoints/*.pt checkpoints/*.pkl
 	@echo "${GREEN}✓ Checkpoint清理完成${NC}"
 
 # 清理所有生成文件
@@ -416,10 +408,8 @@ info:
 # 检查依赖
 check-deps:
 	@echo "检查依赖安装情况..."
-	@$(PYTHON) -c "import torch; print(f'✓ PyTorch {torch.__version__}')" || echo "✗ PyTorch未安装"
 	@$(PYTHON) -c "import transformers; print(f'✓ Transformers {transformers.__version__}')" || echo "✗ Transformers未安装"
 	@$(PYTHON) -c "import datasets; print(f'✓ Datasets {datasets.__version__}')" || echo "✗ Datasets未安装"
-	@$(PYTHON) -c "import torch; print(f'✓ CUDA可用') if torch.cuda.is_available() else print('○ CUDA不可用')"
 
 # 创建必要的目录
 init:

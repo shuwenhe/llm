@@ -1,10 +1,19 @@
 #!/usr/bin/env python3
 """训练管理工具 - 查看检查点、恢复训练、分析历史"""
 import json
-import torch
+import pickle
 from pathlib import Path
 from datetime import datetime
 import argparse
+
+
+def load_checkpoint(path):
+    """加载检查点（仅支持 pickle 格式）"""
+    try:
+        with open(path, 'rb') as f:
+            return pickle.load(f)
+    except Exception as e:
+        raise RuntimeError(f"无法加载检查点 {path}: {e}\\n提示: 新版本仅支持 pickle 格式(.pkl)")
 
 
 def list_checkpoints(checkpoint_dir="checkpoints"):
@@ -25,7 +34,7 @@ def list_checkpoints(checkpoint_dir="checkpoints"):
         mtime = datetime.fromtimestamp(stat.st_mtime)
         
         try:
-            ckpt = torch.load(best, map_location='cpu')
+            ckpt = load_checkpoint(best)
             val_loss = ckpt.get('val_loss', ckpt.get('best_loss', 'N/A'))
             epoch = ckpt.get('epoch', 'N/A')
             checkpoints.append({
@@ -46,7 +55,7 @@ def list_checkpoints(checkpoint_dir="checkpoints"):
         mtime = datetime.fromtimestamp(stat.st_mtime)
         
         try:
-            ckpt = torch.load(latest, map_location='cpu')
+            ckpt = load_checkpoint(latest)
             val_loss = ckpt.get('val_loss', 'N/A')
             epoch = ckpt.get('epoch', 'N/A')
             checkpoints.append({
@@ -66,7 +75,7 @@ def list_checkpoints(checkpoint_dir="checkpoints"):
         mtime = datetime.fromtimestamp(stat.st_mtime)
         
         try:
-            ckpt = torch.load(ckpt_file, map_location='cpu')
+            ckpt = load_checkpoint(ckpt_file)
             val_loss = ckpt.get('val_loss', 'N/A')
             epoch = ckpt.get('epoch', 'N/A')
             checkpoints.append({
@@ -135,8 +144,8 @@ def compare_checkpoints(ckpt1, ckpt2):
     print("-" * 80)
     
     try:
-        c1 = torch.load(ckpt1, map_location='cpu')
-        c2 = torch.load(ckpt2, map_location='cpu')
+        c1 = load_checkpoint(ckpt1)
+        c2 = load_checkpoint(ckpt2)
         
         print(f"{'指标':<20} {'模型1':<20} {'模型2':<20}")
         print("-" * 60)

@@ -1,5 +1,5 @@
-import runpy
+from app.core.inference_quick_generate import quick_test
 
 
 if __name__ == "__main__":
-    runpy.run_module("app.inference.quick_generate", run_name="__main__")
+    quick_test()
