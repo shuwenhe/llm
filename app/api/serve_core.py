@@ -32,6 +32,48 @@ state = State()
 app = FastAPI(title="LLM Core API", version="0.1.0")
 
 
+def _infer_transformer_config(model_cfg):
+    state_dict = model_cfg["state_dict"]
+    n_embd = int(model_cfg["n_embd"])
+
+    # 兼容旧 checkpoint：没有 n_layers/n_heads/max_seq_len 时，按参数形状推断 Transformer
+    has_transformer_meta = all(k in model_cfg for k in ("n_layers", "n_heads", "max_seq_len"))
+    looks_like_transformer = (
+        "param_1" in state_dict
+        and getattr(state_dict["param_1"], "ndim", 0) == 2
+        and state_dict["param_1"].shape[1] == n_embd
+        and len(state_dict) > 3
+    )
+    if not has_transformer_meta and not looks_like_transformer:
+        return None
+
+    max_seq_len = int(model_cfg.get("max_seq_len", state_dict["param_1"].shape[0]))
+    n_layers = model_cfg.get("n_layers")
+    if n_layers is None:
+        inferred = (len(state_dict) - 5) / 12
+        if inferred < 1 or int(inferred) != inferred:
+            raise ValueError("无法从 checkpoint 推断 n_layers，请在 model 中补充 n_layers")
+        n_layers = int(inferred)
+
+    n_heads = model_cfg.get("n_heads")
+    if n_heads is None:
+        if n_embd % 8 == 0:
+            n_heads = 8
+        elif n_embd % 4 == 0:
+            n_heads = 4
+        else:
+            n_heads = 1
+
+    return {
+        "vocab_size": int(model_cfg["vocab_size"]),
+        "n_embd": n_embd,
+        "n_layers": int(n_layers),
+        "n_heads": int(n_heads),
+        "max_seq_len": max_seq_len,
+        "dropout": float(model_cfg.get("dropout", 0.1)),
+    }
+
+
 def _load_or_init():
     ckpt = os.getenv("LLM_CHECKPOINT", "checkpoints/model_core.pkl")
     if os.path.exists(ckpt):
@@ -40,14 +82,15 @@ def _load_or_init():
         tok = CharTokenizer.from_dict(payload["tokenizer"])
         model_cfg = payload["model"]
 
-        if all(k in model_cfg for k in ("n_layers", "n_heads", "max_seq_len")):
+        transformer_cfg = _infer_transformer_config(model_cfg)
+        if transformer_cfg is not None:
             model = TransformerLM(
-                vocab_size=model_cfg["vocab_size"],
-                n_embd=model_cfg["n_embd"],
-                n_layers=model_cfg["n_layers"],
-                n_heads=model_cfg["n_heads"],
-                max_seq_len=model_cfg["max_seq_len"],
-                dropout=model_cfg.get("dropout", 0.1),
+                vocab_size=transformer_cfg["vocab_size"],
+                n_embd=transformer_cfg["n_embd"],
+                n_layers=transformer_cfg["n_layers"],
+                n_heads=transformer_cfg["n_heads"],
+                max_seq_len=transformer_cfg["max_seq_len"],
+                dropout=transformer_cfg["dropout"],
             )
         else:
             model = TinyLM(vocab_size=model_cfg["vocab_size"], n_embd=model_cfg["n_embd"])
