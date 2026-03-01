@@ -402,7 +402,3 @@ A:
 ## 📝 License
 
 MIT License
-
-## 🙏 致谢
-
-本项目受 [nanoGPT](https://github.com/karpathy/nanoGPT) 启发，旨在提供一个清晰易懂的LLM实现。
