@@ -396,8 +396,6 @@ A:
 
 - [Attention Is All You Need](https://arxiv.org/abs/1706.03762) - Transformer原论文
 - [Language Models are Unsupervised Multitask Learners](https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf) - GPT-2论文
-- [nanoGPT](https://github.com/karpathy/nanoGPT) - Andrej Karpathy的GPT实现
-- [The Illustrated Transformer](http://jalammar.github.io/illustrated-transformer/) - Transformer可视化讲解
 
 ## 📝 License
 
