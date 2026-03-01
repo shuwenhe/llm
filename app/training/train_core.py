@@ -6,7 +6,7 @@ import pickle
 
 import numpy as np
 
-from app.core.models import TinyLM
+from app.core.models import TransformerLM
 from app.core.optim import AdamW
 from app.core.tokenizer import CharTokenizer
 
@@ -61,7 +61,14 @@ def train_core(batch_size=8, epochs=3, learning_rate=3e-3, output="checkpoints/m
         all_tokens.extend(tokenizer.encode(t))
 
     seq_len = 64
-    model = TinyLM(vocab_size=tokenizer.vocab_size, n_embd=512)
+    model = TransformerLM(
+        vocab_size=tokenizer.vocab_size,
+        n_embd=512,
+        n_layers=4,
+        n_heads=8,
+        max_seq_len=seq_len,
+        dropout=0.1
+    )
     optimizer = AdamW(model.parameters(), lr=learning_rate)
 
     steps_per_epoch = 10
@@ -86,6 +93,10 @@ def train_core(batch_size=8, epochs=3, learning_rate=3e-3, output="checkpoints/m
         "model": {
             "vocab_size": tokenizer.vocab_size,
             "n_embd": 512,
+            "n_layers": 4,
+            "n_heads": 8,
+            "max_seq_len": seq_len,
+            "dropout": 0.1,
             "state_dict": state_dict,
         },
         "tokenizer": tokenizer.to_dict(),
