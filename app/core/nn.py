@@ -275,6 +275,7 @@ class MultiHeadAttention(Module):
         att = self._softmax(att, axis=-1)
         
         # Dropout（训练时）
+        dropout_mask = None
         if self.attn_dropout.training and self.attn_dropout.p > 0:
             dropout_mask = np.random.binomial(1, 1 - self.attn_dropout.p, size=att.shape) / (1 - self.attn_dropout.p)
             att = att * dropout_mask
@@ -284,7 +285,42 @@ class MultiHeadAttention(Module):
         
         # 重新组合多头: (B, nh, T, hd) -> (B, T, C)
         y = y.transpose(0, 2, 1, 3).reshape(B, T, C)
-        y_tensor = Tensor(y, requires_grad=x.requires_grad)
+        y_tensor = Tensor(y, requires_grad=qkv.requires_grad, _children=(qkv,), _op="mha")
+
+        def _backward():
+            if not qkv.requires_grad:
+                return
+
+            dy = y_tensor.grad.reshape(B, T, self.n_heads, self.head_dim).transpose(0, 2, 1, 3)  # (B, nh, T, hd)
+
+            # y = att @ v
+            datt = dy @ v.transpose(0, 1, 3, 2)              # (B, nh, T, T)
+            dv = att.transpose(0, 1, 3, 2) @ dy              # (B, nh, T, hd)
+
+            # dropout backward on attention probabilities
+            if dropout_mask is not None:
+                datt = datt * dropout_mask
+
+            # softmax backward: dscore = s * (g - sum(g*s))
+            sum_gs = (datt * att).sum(axis=-1, keepdims=True)
+            dscore = att * (datt - sum_gs)
+
+            # masked positions are constants (-1e9), stop gradient
+            dscore = np.where(mask[None, None, :, :] == 1, dscore, 0.0)
+
+            scale = 1.0 / np.sqrt(self.head_dim)
+            dscore = dscore * scale
+
+            # score = q @ k^T
+            dq = dscore @ k                                # (B, nh, T, hd)
+            dk = dscore.transpose(0, 1, 3, 2) @ q         # (B, nh, T, hd)
+
+            # merge back to qkv layout: (B, T, 3*C)
+            dqkv_data = np.stack([dq, dk, dv], axis=0)    # (3, B, nh, T, hd)
+            dqkv_data = dqkv_data.transpose(1, 3, 0, 2, 4).reshape(B, T, 3 * C)
+            qkv.grad += dqkv_data
+
+        y_tensor._backward = _backward
         
         # 输出投影
         out = self.out_proj(y_tensor)
