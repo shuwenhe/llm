@@ -5,7 +5,7 @@ import pickle
 
 import numpy as np
 
-from app.core.models import TinyLM
+from app.core.models import TinyLM, TransformerLM
 from app.core.tokenizer import CharTokenizer
 
 
@@ -26,9 +26,29 @@ def quick_test():
     with open(checkpoint_path, "rb") as f:
         payload = pickle.load(f)
     tokenizer = CharTokenizer.from_dict(payload["tokenizer"])
-    model = TinyLM(vocab_size=payload["model"]["vocab_size"], n_embd=payload["model"]["n_embd"])
+    model_cfg = payload["model"]
+    if all(k in model_cfg for k in ("n_layers", "n_heads", "max_seq_len")):
+        model = TransformerLM(
+            vocab_size=model_cfg["vocab_size"],
+            n_embd=model_cfg["n_embd"],
+            n_layers=model_cfg["n_layers"],
+            n_heads=model_cfg["n_heads"],
+            max_seq_len=model_cfg["max_seq_len"],
+            dropout=model_cfg.get("dropout", 0.1),
+        )
+    else:
+        model = TinyLM(vocab_size=model_cfg["vocab_size"], n_embd=model_cfg["n_embd"])
+    state_dict = model_cfg["state_dict"]
     for i, p in enumerate(model.parameters()):
-        p.data[...] = payload["model"]["state_dict"][f"param_{i}"]
+        key = f"param_{i}"
+        if key not in state_dict:
+            raise ValueError(f"checkpoint 缺少参数: {key}")
+        src = state_dict[key]
+        if p.data.shape != src.shape:
+            raise ValueError(
+                f"checkpoint 参数形状不匹配: {key}, src={src.shape}, dst={p.data.shape}"
+            )
+        p.data[...] = src
 
     test_prompts = [
         "Once upon a time",
@@ -55,8 +75,10 @@ def quick_test():
             if not ids:
                 ids = [0]
 
+            max_ctx = getattr(model, "max_seq_len", None)
             for _ in range(cfg["tokens"]):
-                x = np.array([ids], dtype=np.int64)
+                ctx = ids[-max_ctx:] if isinstance(max_ctx, int) and max_ctx > 0 else ids
+                x = np.array([ctx], dtype=np.int64)
                 logits, _ = model(x, None)
                 next_logits = logits.data[0, -1] / max(cfg["temp"], 1e-6)
                 next_logits = next_logits - np.max(next_logits)
